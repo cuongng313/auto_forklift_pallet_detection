@@ -1,0 +1,21 @@
+<launch>
+
+  <!-- Load joint controller configurations from YAML file to parameter server -->
+  <rosparam file="$(find forklift_simulator)/config/EVX_14_control.yaml" command="load"/>
+
+  <!-- load the controllers -->
+  <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+	output="screen" ns="/EVX_14" args="joint_state_controller
+					  pris_joint_controller
+            wheel_left_steering_joint_controller
+            wheel_right_steering_joint_controller
+            wheel_left_joint_controller
+            wheel_right_joint_controller"/>
+
+  <!-- convert joint states to TF transforms for rviz, etc -->
+  <!-- <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+	respawn="false" output="screen">
+    <remap from="/joint_states" to="/forklift/joint_states" />
+  </node> -->
+
+</launch>

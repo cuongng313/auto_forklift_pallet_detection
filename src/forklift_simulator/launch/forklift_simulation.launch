@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="paused" default="false"/>
+    <arg name="use_sim_time" default="true"/>
+    <arg name="gui" default="true"/>
+    <arg name="headless" default="false"/>
+    <arg name="debug" default="false"/>
+  
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+      <arg name="world_name" value="$(find forklift_simulator)/worlds/empty.world"/>
+      <arg name="debug" value="$(arg debug)" />
+      <arg name="gui" value="$(arg gui)" />
+      <arg name="paused" value="$(arg paused)"/>
+      <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+      <arg name="headless" value="$(arg headless)"/>
+    </include>
+  
+    <param name="robot_description"
+      command="$(find xacro)/xacro --inorder '$(find forklift_simulator)/urdf/RX20_16/main.xacro'" />
+
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen">
+			<param name="robot_description" command="$(find xacro)/xacro --inorder $(find forklift_simulator)/urdf/RX20_16/main.xacro" />
+    <remap from="/joint_states" to="/forklift/joint_states" />
+
+    <!-- <rosparam file="$(find forklift_simulator)/config/ackermansteer.yaml" command="load" ns="/forklift"/> -->
+
+
+		</node>
+  
+    <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+      args="-urdf -model forklift -y 0.0 -z 0.5 -param robot_description"/>
+  
+    <!-- ros_control robot launch file -->
+    <!-- <include file="$(find forklift_simulator)/launch/forklift_control.launch"></include> -->
+    <include file="$(find forklift_simulator)/launch/RX20_16_control.launch"></include>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find forklift_simulator)/rviz/simulator.rviz"/>
+  </launch>
+  

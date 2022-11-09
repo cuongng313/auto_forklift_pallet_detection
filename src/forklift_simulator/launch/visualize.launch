@@ -1,0 +1,5 @@
+<launch>
+  <!-- Show in Rviz   -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find forklift_simulator)/rviz/simulator.rviz"/>
+
+</launch>

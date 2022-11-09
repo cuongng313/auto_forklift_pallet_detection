@@ -1,0 +1,156 @@
+<?xml version="1.0" ?>
+
+<robot name="RX20_16" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+ <link name="tilt_link">
+    <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <xacro:box_inertia mass="0.1" x="0.2" y="0.1" z="0.05"/>
+    <mass value= "0.1"/>
+    </inertial>
+
+    <collision >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry> <mesh filename="$(find forklift_simulator)/urdf/RX20_16/meshes/tilt_link.dae" />
+    </geometry>
+    </collision>
+
+    <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+          <mesh filename="$(find forklift_simulator)/urdf/RX20_16/meshes/tilt_link.dae" />
+    </geometry>
+    </visual>
+  </link>
+    
+  <joint name="tilt_joint" type="revolute">
+    <parent link="base_link" />
+    <child link="tilt_link" />
+    <origin xyz="0.18 0 0.0" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <limit lower="-0.087" upper="0.105" effort="50" velocity="0.3"/>
+     <dynamics damping="10" friction="1"/>
+  </joint>
+
+  <link name="lift_link">
+    <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <xacro:box_inertia mass="0.1" x="0.2" y="0.1" z="0.05"/>
+    <mass value= "0.1"/>
+    </inertial>
+
+    <collision >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry> <mesh filename="$(find forklift_simulator)/urdf/RX20_16/meshes/lift_link.dae" />
+    </geometry>
+    </collision>
+
+    <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+          <mesh filename="$(find forklift_simulator)/urdf/RX20_16/meshes/lift_link.dae" />
+    </geometry>
+    </visual>
+  </link>
+    
+  <joint name="lift_joint" type="prismatic">
+    <parent link="tilt_link" />
+    <child link="lift_link" />
+    <origin xyz="0.134 0 0.22" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit lower="0.05" upper="2" effort="100" velocity="0.3"/>
+     <dynamics damping="100.0" friction="1"/>
+  </joint>
+
+  <link name="sideshift_link">
+    <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <xacro:box_inertia mass="0.1" x="0.2" y="0.1" z="0.05"/>
+    <mass value= "0.1"/>
+    </inertial>
+
+    <collision >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry> <mesh filename="$(find forklift_simulator)/urdf/RX20_16/meshes/sideshift_link.dae" />
+    </geometry>
+    </collision>
+
+    <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+          <mesh filename="$(find forklift_simulator)/urdf/RX20_16/meshes/sideshift_link.dae" />
+    </geometry>
+    </visual>
+  </link>
+    
+  <joint name="sideshift_joint" type="prismatic">
+    <parent link="lift_link" />
+    <child link="sideshift_link" />
+    <origin xyz="0.06 0 -0.25" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <limit lower="-0.2" upper="0.2" effort="100" velocity="0.3"/>
+     <dynamics damping="10" friction="1"/>
+  </joint>
+
+  <transmission name="tran1">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="tilt_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor1">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <transmission name="tran2">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="lift_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor2">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <transmission name="tran3">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="sideshift_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor3">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>/RX20_16</robotNamespace>
+      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+    </plugin>
+  </gazebo>
+
+  <!-- <link name='box'>
+    <collision>
+      <geometry>
+        <box size="1.2 0.8 0.1"/>
+      </geometry>
+    </collision>
+    <visual>
+      <geometry>
+        <box size="1.2 0.8 0.1"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="pad_joint" type="fixed">
+    <parent link="tilt_link" />
+    <child link="box" />
+    <origin xyz="0.7 0 0.06" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint> -->
+
+
+  </robot>

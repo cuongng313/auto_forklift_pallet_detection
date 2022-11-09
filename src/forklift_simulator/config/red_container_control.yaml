@@ -1,0 +1,17 @@
+red_container:
+  # Publish all joint states -----------------------------------
+  joint_state_controller:
+    type: joint_state_controller/JointStateController
+    publish_rate: 50  
+  
+  # Position Controllers ---------------------------------------
+
+  right_door_joint_controller:
+    type: effort_controllers/JointPositionController
+    joint: right_door_container_joint
+    pid: {p: 20.0, i: 0.0, d: 1.0}
+
+  left_door_joint_controller:
+    type: effort_controllers/JointPositionController
+    joint: left_door_container_joint
+    pid: {p: 20.0, i: 0.0, d: 1.0}

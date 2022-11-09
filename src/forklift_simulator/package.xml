@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<package>
+    <name>forklift_simulator</name>
+    <version>0.10.2</version>
+    <description>forkliftsimulation</description>
+    <maintainer email="sample@gmail.com">Fabian</maintainer>
+    <license>BSD</license>
+  
+    <author email="sample@gmail.com">Fabian</author>
+  
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <build_depend>rosconsole</build_depend>
+    <build_depend>roslaunch</build_depend>
+    <build_depend>roscpp</build_depend>
+    <build_depend>rospy</build_depend>
+    <build_depend>std_msgs</build_depend>
+  
+    <run_depend>gazebo_plugins</run_depend>
+    <run_depend>gazebo_ros</run_depend>
+    <run_depend>gazebo_ros_control</run_depend>  
+    <run_depend>joint_state_publisher</run_depend>
+    <run_depend>robot_state_publisher</run_depend>
+    <run_depend>rviz</run_depend>
+    <run_depend>xacro</run_depend>
+    <run_depend>rosconsole</run_depend>
+    <run_depend>roscpp</run_depend>
+    <run_depend>rospy</run_depend>
+    <!-- <run_depend>roslaunch</run_depend> -->
+    <run_depend>std_msgs</run_depend>
+
+</package>
+  

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+
+    <param name="robot_description"
+      command="$(find xacro)/xacro --inorder '$(find forklift_simulator)/urdf/red_container/main.xacro'" />
+
+    <node name="container_robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen">
+			<param name="robot_description" command="$(find xacro)/xacro --inorder $(find forklift_simulator)/urdf/red_container/main.xacro" />
+    <remap from="/joint_states" to="/red_container/joint_states" />
+
+		</node>
+  
+    <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+      args="-urdf -x 3 -y 0 -z 0 -Y 1.57 -model red_container -param robot_description"/>
+  
+    <!-- ros_control robot launch file -->
+    <include file="$(find forklift_simulator)/launch/container_control.launch"></include>
+  
+  </launch>
+  

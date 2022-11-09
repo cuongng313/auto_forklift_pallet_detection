@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<robot name="red_container" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+
+<xacro:include filename="$(find forklift_simulator)/urdf/red_container/inertia.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/red_container/base.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/red_container/left_door.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/red_container/right_door.xacro" />
+
+<xacro:left_door />
+<xacro:right_door />
+
+
+</robot>

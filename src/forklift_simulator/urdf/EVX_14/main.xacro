@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<robot name="EVX_14" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+
+<xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/inertia.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/base.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/nav_lidar.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/detection_lidar.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/drive_wheels.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/load_wheels.xacro" />
+<!-- <xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/camera.xacro" /> -->
+<xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/d435_camera.xacro" />
+<xacro:include filename="$(find forklift_simulator)/urdf/EVX_14/load_fork_joint.xacro" />
+
+<!-- <xacro:camera_custom name="front"  x="0.06"  y="0" z="0.6" roll="0.0" pitch="0" yaw="0" /> -->
+<xacro:camera_d435 name="camera" topics_ns="camera" parent="base_link" publish_pointcloud="true"> <origin xyz="0.06 0 0.7" rpy="0 0 0" /> </xacro:camera_d435>  
+
+<xacro:evx_drive_wheel name="left" x_steering="-0.662" y_steering="0.267" z_steering="0.115" radius="0.115" width="0.09" flip="1" />
+<xacro:evx_drive_wheel name="right" x_steering="-0.662" y_steering="-0.267" z_steering="0.115" radius="0.115" width="0.09" flip="1" />
+
+<xacro:evx_load_wheel name="right" x_loading="0.724" y_loading="0.192" z_loading="0.0425" radius="0.0425" width="0.085" flip="1" />
+<xacro:evx_load_wheel name="left" x_loading="0.724" y_loading="-0.192" z_loading="0.0425" radius="0.0425" width="0.085" flip="1" />
+
+<xacro:nav_lidar name="back"  x="-0.872"  y="-0.4" z="0.1" roll="0" pitch="0" yaw="1.57" resolution="1"/>
+<xacro:nav_lidar name="front"  x="0"  y="0.4" z="0.1" roll="0" pitch="0" yaw="-1.57" resolution="1"/>
+
+<xacro:detection_lidar name="front"  x="0.0"  y="0.0" z="0.6" roll="0" pitch="0" yaw="0" resolution="1"/>
+
+</robot>

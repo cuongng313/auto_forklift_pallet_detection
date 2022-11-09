@@ -1,0 +1,25 @@
+<launch>
+
+  <!-- Load joint controller configurations from YAML file to parameter server -->
+  <rosparam file="$(find forklift_simulator)/config/RX20_16_control.yaml" command="load"/>
+
+  <!-- load the controllers -->
+  <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+	output="screen" ns="/RX20_16" args="joint_state_controller
+					  tilt_joint_controller
+					  lift_joint_controller
+					  sideshift_joint_controller
+            "/>
+
+            <!-- wheel_left_steering_joint_controller
+            wheel_right_steering_joint_controller
+            wheel_left_driving_joint_controller
+            wheel_right_driving_joint_controller -->
+
+  <!-- convert joint states to TF transforms for rviz, etc -->
+  <!-- <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+	respawn="false" output="screen">
+    <remap from="/joint_states" to="/forklift/joint_states" />
+  </node> -->
+
+</launch>

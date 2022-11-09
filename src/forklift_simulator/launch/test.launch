@@ -1,0 +1,4 @@
+<launch>
+    <node name="forklift_simulation" pkg="forklift_simulator" type="testnode" output="screen"/>
+</launch>
+  

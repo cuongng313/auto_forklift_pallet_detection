@@ -1,0 +1,43 @@
+<?xml version="1.0" ?>
+
+<robot name="EVX_14" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <gazebo>
+    <!-- <plugin name="gazebo_ros2_control"
+            filename="libgazebo_ros_control.so">
+      <robotNamespace>/</robotNamespace>
+      <robotParam>/robot_description</robotParam>
+      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+    </plugin> -->
+    <plugin name="robot_wheels_diff_drive" filename="libgazebo_ros_diff_drive.so">
+      <ros>
+        <remapping>/tf:=tf</remapping>
+        <remapping>/tf_static:=tf_static</remapping>
+      </ros>
+      <update_rate>30</update_rate>
+      <left_joint>wheel_left_joint</left_joint>
+      <right_joint>wheel_right_joint</right_joint>
+      <wheel_separation>${wheel_distance}</wheel_separation>
+      <wheel_diameter>${wheel_radius *2}</wheel_diameter>
+      <max_wheel_torque>200</max_wheel_torque>
+      <max_wheel_acceleration>1</max_wheel_acceleration>
+
+      <command_topic>cmd_vel</command_topic>
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <publish_wheel_tf>false</publish_wheel_tf>
+      <odometry_topic>odom</odometry_topic>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+    </plugin>
+
+    <plugin name="robot_joint_state" filename="libgazebo_ros_joint_state_publisher.so">
+      <ros>
+        <argument>--ros-args --remap ~/out:=joint_states</argument>
+      </ros>
+      <update_rate>30</update_rate>
+      <joint_name>wheel_left_joint</joint_name>
+      <joint_name>wheel_right_joint</joint_name>
+    </plugin>
+
+</gazebo>
+</robot>

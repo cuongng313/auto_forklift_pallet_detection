@@ -1,0 +1,60 @@
+<?xml version="1.0" ?>
+
+<robot name="red_container" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:macro name="right_door">
+ 
+
+  <link name="right_door_container_link">
+    <inertial>
+    <origin xyz="0 0 0.1125" rpy="0 0 0"/>
+    <xacro:cylinder_inertia mass="1" r="0.05" l="0.225" />
+    <mass value= "1"/>
+    </inertial>
+
+    <collision >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+        <mesh filename="$(find forklift_simulator)/urdf/red_container/meshes/red_container_right_door.dae" />
+    </geometry>
+    </collision>
+
+    <visual >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+        <mesh filename="$(find forklift_simulator)/urdf/red_container/meshes/red_container_right_door.dae" />
+    </geometry>
+    </visual>
+  </link>
+    
+  <joint name="right_door_container_joint" type="revolute">
+    <parent link="base_link" />
+    <child link="right_door_container_link" />
+    <origin xyz="-1.1 -0.02 0" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.57" upper="1.57" effort="30" velocity="0.3"/>
+     <dynamics damping="1" friction="1"/>
+  </joint>
+
+
+  <transmission name="trans_right_door">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="right_door_container_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor_trans_right_door">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+    <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>/red_container</robotNamespace>
+      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+    </plugin>
+  </gazebo>
+
+ </xacro:macro>
+
+</robot>

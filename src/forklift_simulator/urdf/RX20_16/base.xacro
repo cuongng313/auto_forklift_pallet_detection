@@ -1,0 +1,54 @@
+<?xml version="1.0" ?>
+
+<robot name="RX20_16" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <link name="base_footprint"/>
+  <link name="base_scan"/>
+
+  <link name="base_link">
+   <inertial>
+    <origin xyz="-0.8 0 0.417" rpy="0 0 0"/>
+     <xacro:box_inertia mass="50" x="1.843" y="1.1" z="0.835"/>
+    <mass value= "50"/>
+    </inertial>
+
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh
+          filename="$(find forklift_simulator)/urdf/RX20_16/meshes/body.dae" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh
+        filename="$(find forklift_simulator)/urdf/RX20_16/meshes/body.dae" />
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0.0 0 0.068" rpy="0 0 0"/>
+  </joint>
+
+  <link name="imu_link"/>
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint" />
+    <child link="base_link" />
+    <origin xyz="0.0 0 0.0" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+  <joint name="scan_joint" type="fixed">
+    <parent link="base_footprint" />
+    <child link="base_scan" />
+    <origin xyz="0.0 0 0.0" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+
+</robot>

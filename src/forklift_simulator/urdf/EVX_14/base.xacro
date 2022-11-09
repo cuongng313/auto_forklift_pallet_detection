@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+
+<robot name="EVX_14" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <link name="base_footprint"/>
+
+  <link name="base_link">
+   <inertial>
+    <origin xyz="-0.436 0 0.349" rpy="0 0 0"/>
+     <xacro:box_inertia mass="200" x="0.872" y="0.8" z="0.618"/>
+    <mass value= "200"/>
+    </inertial>
+
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh
+          filename="$(find forklift_simulator)/urdf/EVX_14/meshes/EVX_14_base.dae" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh
+        filename="$(find forklift_simulator)/urdf/EVX_14/meshes/EVX_14_base.dae" />
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0.0 0 0.068" rpy="0 0 0"/>
+  </joint>
+
+  <link name="imu_link"/>
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint" />
+    <child link="base_link" />
+    <origin xyz="0.0 0 0.010" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+
+</robot>

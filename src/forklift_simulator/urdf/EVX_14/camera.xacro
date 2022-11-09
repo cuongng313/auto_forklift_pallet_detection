@@ -1,0 +1,89 @@
+<?xml version="1.0" ?>
+
+<robot name="EVX_14" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:macro name="camera_custom" params="name x y z roll pitch yaw ">
+  <link name="${name}_camera_frame">
+      <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.001" ixy="0.000" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+      <mass value= "0.01"/>
+      </inertial>
+
+      <visual name="${name}_camera_frame">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+       <box size="0.01 0.01 0.01"/>
+      </geometry>
+      </visual>
+  </link>
+
+  <joint name="${name}_camera_joint" type="fixed">
+      <parent link="base_link" />
+    <child link="${name}_camera_frame" />
+    <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+  <link name="camera_rgbd_frame"/>
+    <joint name="camera_frame_joint" type="fixed">
+        <origin rpy="-1.5707 0 -1.5707" xyz="0 0 0"/>
+        <parent link="${name}_camera_frame"/>
+        <child link="camera_rgbd_frame"/>
+    </joint>
+
+
+  <gazebo reference="${name}_camera_frame">
+    <sensor name="${name}_camera_frame"   type="depth">
+        <update_rate>25</update_rate>
+        <visualize>false</visualize>
+        <camera>
+            <!-- <vertical_fov>0.7</vertical_fov> unsupported -->
+          <horizontal_fov>1.047</horizontal_fov>
+            <image>
+            <format>R8G8B8</format>
+            <width>352</width>
+              <height>264</height>
+          </image>
+          <clip>
+            <near>0.3</near>
+              <far>10</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+              <mean>0.0</mean>
+            <stddev>0.02</stddev>
+          </noise>
+          </camera>
+        <plugin filename="libgazebo_ros_openni_kinect.so" name="camera_plugin">
+          <baseline>0.2</baseline>
+          <alwaysOn>true</alwaysOn>
+            <!-- Keep this zero, update_rate in the parent <sensor> tag
+                will control the frame rate. -->
+          <updateRate>0.0</updateRate>
+            <cameraName>${name}_camera_frame</cameraName>
+          <imageTopicName>/${name}_camera_frame/depth/image_raw</imageTopicName>
+            <cameraInfoTopicName>/${name}_camera_frame/depth/camera_info</cameraInfoTopicName>
+            <depthImageTopicName>/${name}_camera_frame/depth/image_raw</depthImageTopicName>
+            <depthImageInfoTopicName>/${name}_camera_frame/depth/camera_info</depthImageInfoTopicName>
+            <pointCloudTopicName>/${name}_camera_frame/depth/points</pointCloudTopicName>
+            <frameName>camera_rgbd_frame</frameName>
+          <pointCloudCutoff>0.05</pointCloudCutoff>
+            <distortionK1>1</distortionK1>
+          <distortionK2>1</distortionK2>
+            <distortionK3>1</distortionK3>
+          <distortionT1>1</distortionT1>
+            <distortionT2>1</distortionT2>
+          <CxPrime>0</CxPrime>
+          <Cx>0</Cx>
+            <Cy>0</Cy>
+          <focalLength>0</focalLength>
+          <hackBaseline>0</hackBaseline>
+          </plugin>
+      </sensor>
+  </gazebo>
+
+</xacro:macro>
+
+
+  </robot>
