@@ -1,0 +1,25 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/cuongnguen/Techtile/auto_forklift/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/cuongnguen/Techtile/auto_forklift/src/depth_image_proc/include/**",
+        "/home/cuongnguen/Techtile/auto_forklift/src/multi_pallet_detection/include/**",
+        "/home/cuongnguen/Techtile/auto_forklift/src/pf_lidar_ros_driver/pf_driver/include/**",
+        "/home/cuongnguen/Techtile/auto_forklift/src/realsense_gazebo_plugin/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

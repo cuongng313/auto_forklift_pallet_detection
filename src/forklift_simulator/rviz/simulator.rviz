@@ -7,7 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /TF1/Frames1
-        - /PlaneSegment1
+        - /PalletPointCloud1
       Splitter Ratio: 0.530434787273407
     Tree Height: 490
   - Class: rviz/Selection
@@ -27,7 +27,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: GroundRemovePointCloud
+    SyncSource: Image
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -288,7 +288,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -303,35 +303,35 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 0.7848273515701294
-        Min Value: -0.1753091812133789
+        Max Value: 0.0038772416301071644
+        Min Value: -0.15619635581970215
         Value: true
       Axis: Z
       Channel Name: x
       Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: Intensity
+      Color: 252; 175; 62
+      Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: OutputNormal
+      Name: PalletPointCloud
       Position Transformer: XYZ
       Queue Size: 1
       Selectable: true
       Size (Pixels): 3
       Size (m): 1
-      Style: Squares
-      Topic: /pd_output_point_cloud_normal
+      Style: Points
+      Topic: /pd_pallet_pointcloud
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -500,7 +500,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 5.275887966156006
+      Distance: 4.194527626037598
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -508,17 +508,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.981699526309967
-        Y: -0.36674797534942627
-        Z: 0.0601220577955246
+        X: 0.7598921656608582
+        Y: -0.4190530478954315
+        Z: -0.754372775554657
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.07979652285575867
+      Pitch: 1.2247968912124634
       Target Frame: <Fixed Frame>
-      Yaw: 3.180449962615967
+      Yaw: 3.200450897216797
     Saved: ~
 Window Geometry:
   Displays:

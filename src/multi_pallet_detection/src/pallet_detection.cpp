@@ -9,7 +9,7 @@
 #include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
 
-// Plane segmentation...
+/* Plane Segmentation */
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
@@ -27,10 +27,17 @@
 #include <pcl/features/integral_image_normal.h>
 #include <pcl/features/organized_edge_detection.h>
 
+#include <dynamic_reconfigure/server.h>
+#include </home/cuongnguen/Techtile/auto_forklift/devel/include/multi_pallet_detection/palletDetectionReconfigureConfig.h>
+
+
+/* type define */
 typedef pcl::PointCloud<pcl::PointXYZ> pcl_PointCloud;
 typedef pcl::PointCloud<pcl::PointXYZRGB> pcl_PointCloudRGB;
 typedef pcl::PointCloud<pcl::PointNormal> PointCloudN;
 typedef pcl_msgs::PointIndices PCLIndicesMsg;
+
+typedef multi_pallet_detection::palletDetectionReconfigureConfig Config;
 
 
 class PalletDetection
@@ -51,7 +58,7 @@ private:
       pub_curvature_edges_, pub_rgb_edges_, pub_all_edges_;
 
     ros::Subscriber sub_point_cloud_;
-    ros::ServiceServer service_;
+    boost::shared_ptr <dynamic_reconfigure::Server<Config> > srv_;
     
     /* Pointcloud cutoff */
     double min_x_cutoff_;
@@ -63,10 +70,10 @@ private:
 
     /* Pointcloud remove floor */
     double floor_distance_thresh_;
-    bool remove_floor_;
+    bool active_remove_floor_;
 
     /* Pointcloud segementation */
-    bool plane_segment_;
+    bool active_segment_;
     double min_cluster_size_;
     double max_cluster_size_;
     double neighbor_number_;
@@ -96,6 +103,7 @@ private:
     pcl_PointCloudRGB cloud_rgb_;
 
 public:
+
     PalletDetection(ros::NodeHandle &paramGet)
     {
         /* Get Param */
@@ -108,11 +116,11 @@ public:
         paramGet.param<double>("max_z_cutoff", max_z_cutoff_, 4.0);
 
         /* Ground filter */
-        paramGet.param<bool>("remove_floor", remove_floor_, false);
+        paramGet.param<bool>("active_remove_floor", active_remove_floor_, false);
         paramGet.param<double>("floor_distance_thresh", floor_distance_thresh_, 0.01);
 
         /* Plane segmentation */
-        paramGet.param<bool>("plane_segment", plane_segment_, false);
+        paramGet.param<bool>("active_segment", active_segment_, false);
         paramGet.param<double>("min_cluster_size", min_cluster_size_, 1000);
         paramGet.param<double>("max_cluster_size", max_cluster_size_, 1000000);
         paramGet.param<double>("neighbor_number", neighbor_number_, 50);
@@ -164,6 +172,13 @@ public:
         pub_curvature_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output_curvature_edge", 1);
         pub_rgb_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output_rgb_edge", 1);
         pub_all_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output", 1);
+
+        // dynamic reconfigure server
+
+        srv_ = boost::make_shared <dynamic_reconfigure::Server<Config> > (paramGet);
+        dynamic_reconfigure::Server<Config>::CallbackType f;
+        f = boost::bind(&PalletDetection::reconfigCallback, this, _1, _2);
+        srv_->setCallback(f);
     }
 
     void filterPointCloud(pcl_PointCloud &input, pcl_PointCloud &output) 
@@ -219,7 +234,8 @@ public:
         extract.filter (output);
     }
 
-    void planeSegementation(pcl_PointCloud &input, pcl_PointCloudRGB &output)
+    void planeSegementation(pcl_PointCloud &input, pcl_PointCloud &output_segment,
+                                pcl_PointCloudRGB &output)
     {
         pcl::search::Search<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
         pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
@@ -261,14 +277,14 @@ public:
         //     std::cout << "Points of cluster [" << i << "]: " << vp[i].first << std::endl;
         // }
 
-        // pcl::ExtractIndices<pcl::PointXYZ> extract;
-        // extract.setInputCloud (input.makeShared());
-        // extract.setIndices (boost::make_shared<std::vector<int> > (clusters[min_index].indices));
-        // extract.setKeepOrganized (true);
-        // extract.filter (cloud_f_);
-
         if (cluster_size != 0)
         {
+            pcl::ExtractIndices<pcl::PointXYZ> extract;
+            extract.setInputCloud (input.makeShared());
+            extract.setIndices (boost::make_shared<std::vector<int> > (clusters[0].indices));
+            extract.setKeepOrganized (true);
+            extract.filter (output_segment);
+
             std::cout << "Number of clusters is equal to " << clusters.size () << std::endl;
             std::cout << "First cluster has " << clusters[0].indices.size () << " points." << std::endl;
 
@@ -388,7 +404,7 @@ public:
         pub_filtered_pointcloud_.publish(cloud_);
 
         /* Clear the PC from floor points */
-        if(remove_floor_)
+        if(active_remove_floor_)
         {
             groundFilter(cloud_, cloud_f_);
             cloud_ = cloud_f_;
@@ -396,10 +412,11 @@ public:
         }
 
         /* Plane Segment */    
-        if(plane_segment_)
+        if(active_segment_)
         {
-            planeSegementation(cloud_, cloud_rgb_);
+            planeSegementation(cloud_, cloud_f_, cloud_rgb_);
             pub_rgb_pointcloud.publish(cloud_rgb_);
+            pub_pallet_pointcloud_.publish(cloud_f_);
         }
 
         /* Normal estimation*/
@@ -422,6 +439,36 @@ public:
                     cloud_.makeShared(), label_indices[3].indices, msg->header);
         publishEdge(pub_rgb_edges_, pub_rgb_edges_indices_,
                     cloud_.makeShared(), label_indices[4].indices, msg->header);      
+    }
+
+    void reconfigCallback(multi_pallet_detection::palletDetectionReconfigureConfig &config, uint32_t level) {
+        ROS_INFO("Reconfigure Request");
+        // Cutoff parameters
+        min_x_cutoff_ = config.min_x_cutoff; max_x_cutoff_ = config.max_x_cutoff;
+        min_y_cutoff_ = config.min_y_cutoff; max_y_cutoff_ = config.max_y_cutoff;
+        min_z_cutoff_ = config.min_z_cutoff; max_z_cutoff_ = config.max_z_cutoff;
+
+        // Floor Remove
+        active_remove_floor_ = config.active_remove_floor;
+        floor_distance_thresh_ = config. floor_distance_thresh;
+
+        // Segment
+        active_segment_ = config.active_segment;
+        min_cluster_size_ = config. min_cluster_size;
+        max_cluster_size_ = config.max_cluster_size;
+        neighbor_number_ = config.neighbor_number;
+        curvature_thres_ = config.curvature_thres;
+        smooth_thresh_ = config.smooth_thresh;
+        k_search_ = config.k_search;
+
+        // Edge Detection
+        depth_discontinuation_threshold_ = config.depth_discontinuation_threshold;
+        max_search_neighbors_ = config.max_search_neighbors;
+        use_nan_boundary_ = config.use_nan_boundary;
+        use_occluding_ = config.use_occluding;
+        use_occluded_ = config.use_occluded;
+        use_curvature_ = config.use_curvature;
+        use_rgb_ = config.use_rgb;
     }
 
     ~PalletDetection() {}

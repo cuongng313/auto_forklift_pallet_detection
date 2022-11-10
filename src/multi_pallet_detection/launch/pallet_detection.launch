@@ -6,10 +6,10 @@
     <param name="min_y_cutoff" value="0.0"/>
     <param name="max_y_cutoff" value="2.7"/>
     <param name="min_z_cutoff" value="0.2"/>
-    <param name="max_z_cutoff" value="1.7"/>
+    <param name="max_z_cutoff" value="1.5"/>
 
     <!-- Parameters for floor remove -->
-    <param name="remove_floor" value="true"/>
+    <param name="active_remove_floor" value="true"/>
     <param name="floor_distance_thresh" value="0.03"/>
 
     <!-- Parameters for pointcloud segementation -->

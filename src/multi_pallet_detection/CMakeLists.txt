@@ -12,10 +12,15 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   pcl_ros
+  dynamic_reconfigure
+)
+
+generate_dynamic_reconfigure_options(
+  cfg/pallet_detection_reconfig.cfg
 )
 
 catkin_package(
-#  INCLUDE_DIRS include
+  INCLUDE_DIRS include
 #  LIBRARIES multi_pallet_detection
 #  CATKIN_DEPENDS roscpp rospy std_msgs
 #  DEPENDS system_lib
@@ -32,4 +37,5 @@ include_directories(
 
 add_executable(pallet_detection src/pallet_detection.cpp)
 target_link_libraries(pallet_detection ${catkin_LIBRARIES})
+add_dependencies(pallet_detection ${PROJECT_NAME}_gencfg)
 
