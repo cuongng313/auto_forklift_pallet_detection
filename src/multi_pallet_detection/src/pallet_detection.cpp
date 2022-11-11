@@ -26,9 +26,19 @@
 #include <pcl/segmentation/region_growing.h>
 #include <pcl/features/integral_image_normal.h>
 #include <pcl/features/organized_edge_detection.h>
+#include <pcl/filters/conditional_removal.h> 
+#include <pcl/visualization/cloud_viewer.h>
+
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include "opencv2/imgcodecs.hpp"
 
 #include <dynamic_reconfigure/server.h>
 #include </home/cuongnguen/Techtile/auto_forklift/devel/include/multi_pallet_detection/palletDetectionReconfigureConfig.h>
+
 
 
 /* type define */
@@ -38,7 +48,6 @@ typedef pcl::PointCloud<pcl::PointNormal> PointCloudN;
 typedef pcl_msgs::PointIndices PCLIndicesMsg;
 
 typedef multi_pallet_detection::palletDetectionReconfigureConfig Config;
-
 
 class PalletDetection
 {
@@ -56,6 +65,7 @@ private:
     ros::Publisher pub_nan_boundary_edges_,
       pub_occluding_edges_, pub_occluded_edges_,
       pub_curvature_edges_, pub_rgb_edges_, pub_all_edges_;
+    ros::Publisher pub_image_;
 
     ros::Subscriber sub_point_cloud_;
     boost::shared_ptr <dynamic_reconfigure::Server<Config> > srv_;
@@ -74,6 +84,7 @@ private:
 
     /* Pointcloud segementation */
     bool active_segment_;
+    bool opencv_show_;
     double min_cluster_size_;
     double max_cluster_size_;
     double neighbor_number_;
@@ -90,6 +101,7 @@ private:
     bool depth_dependent_smoothing_;
 
     /* Edge detection */
+    bool visualize_normal_;
     double depth_discontinuation_threshold_;
     int max_search_neighbors_;
     bool use_nan_boundary_;
@@ -98,13 +110,20 @@ private:
     bool use_curvature_;
     bool use_rgb_;
 
+    /* Template matching */
+    cv::Mat templ_img;
+    cv::Mat source_img_;
+    cv::Mat result_img_;
+    int match_method_ = 0;
+
     pcl_PointCloud cloud_;
     pcl_PointCloud cloud_f_;
     pcl_PointCloudRGB cloud_rgb_;
+    sensor_msgs::Image pallet_image_;
 
 public:
 
-    PalletDetection(ros::NodeHandle &paramGet)
+    PalletDetection(ros::NodeHandle &paramGet) 
     {
         /* Get Param */
         /* Cut off distnace */
@@ -145,6 +164,8 @@ public:
         paramGet.param<bool>("use_curvature", use_curvature_, false);
         paramGet.param<bool>("use_rgb", use_rgb_, false);
 
+        /* template matching */
+        paramGet.param<int>("match_method", match_method_, 0);
 
         /* ROS Subscriber */
         sub_point_cloud_ = nh_.subscribe<sensor_msgs::PointCloud2>("/camera/depth/color/points", 1, 
@@ -172,6 +193,9 @@ public:
         pub_curvature_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output_curvature_edge", 1);
         pub_rgb_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output_rgb_edge", 1);
         pub_all_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output", 1);
+
+        // Image publisher
+        pub_image_= nh_.advertise<sensor_msgs::Image>("pd_image_converted", 1);
 
         // dynamic reconfigure server
 
@@ -234,20 +258,27 @@ public:
         extract.filter (output);
     }
 
-    void planeSegementation(pcl_PointCloud &input, pcl_PointCloud &output_segment,
-                                pcl_PointCloudRGB &output)
+    void estimateNormalKdtree( const pcl_PointCloud::Ptr &input,
+                            pcl::PointCloud<pcl::Normal>::Ptr output)
     {
         pcl::search::Search<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
-        pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
         pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normal_estimator;
         normal_estimator.setSearchMethod (tree);
-        normal_estimator.setInputCloud (input.makeShared());
+        normal_estimator.setInputCloud (input);
         normal_estimator.setKSearch (k_search_);
-        normal_estimator.compute (*normals);
+        normal_estimator.compute (*output);
+    }
+    
+    void planeSegementation(pcl_PointCloud &input,pcl_PointCloudRGB &output, 
+                            const pcl::PointCloud<pcl::Normal>::Ptr& normals)
+    {
+        // pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
+        // estimateNormalKdtree(input.makeShared(), normals);
 
         pcl::RegionGrowing<pcl::PointXYZ, pcl::Normal> reg;
         reg.setMinClusterSize (min_cluster_size_);
         reg.setMaxClusterSize (max_cluster_size_);
+        pcl::search::Search<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
         reg.setSearchMethod (tree);
         reg.setNumberOfNeighbours (neighbor_number_);
         reg.setInputCloud (input.makeShared());
@@ -279,18 +310,19 @@ public:
 
         if (cluster_size != 0)
         {
-            pcl::ExtractIndices<pcl::PointXYZ> extract;
-            extract.setInputCloud (input.makeShared());
-            extract.setIndices (boost::make_shared<std::vector<int> > (clusters[0].indices));
-            extract.setKeepOrganized (true);
-            extract.filter (output_segment);
-
-            std::cout << "Number of clusters is equal to " << clusters.size () << std::endl;
-            std::cout << "First cluster has " << clusters[0].indices.size () << " points." << std::endl;
+            // std::cout << "Number of clusters is equal to " << clusters.size () << std::endl;
+            // std::cout << "First cluster has " << clusters[0].indices.size () << " points." << std::endl;
 
             pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud ();
             colored_cloud->header.frame_id = input.header.frame_id;
-            output = *colored_cloud;
+            // output = *colored_cloud;
+
+            pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+            extract.setInputCloud (colored_cloud);
+            extract.setIndices (boost::make_shared<std::vector<int> > (clusters[0].indices));
+            extract.setKeepOrganized (true);
+            extract.filter (output);
+
         }
         else{
             std::cout << "no cluster found!" << std::endl;
@@ -298,10 +330,9 @@ public:
 
     }
 
-    /* Edge detection module*/
-    void estimateNormal( const pcl_PointCloud::Ptr &input,
-                            pcl::PointCloud<pcl::Normal>::Ptr output,
-                                const std_msgs::Header& header)
+    /* Edge detection module */
+    void estimateNormalIntegralImage( const pcl_PointCloud::Ptr &input,
+                            pcl::PointCloud<pcl::Normal>::Ptr output)
     {
         pcl::IntegralImageNormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
         if (normal_estimation_method_ == 0) 
@@ -343,6 +374,18 @@ public:
         {
             pub_pointcloud_normal_.publish(output);
         }
+        
+        if (visualize_normal_)
+        {
+            pcl::visualization::PCLVisualizer viewer("Point Normal");
+            viewer.setBackgroundColor (0.0, 0.0, 0.5);
+            viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(input, output);
+            while (!viewer.wasStopped ())
+            {
+                viewer.spinOnce ();
+            }
+        }
+
     }
 
     void estimateEdge( const pcl::PointCloud<pcl::PointXYZ>::Ptr& input, const pcl::PointCloud<pcl::Normal>::Ptr& normal,
@@ -373,8 +416,7 @@ public:
         oed.setInputCloud(input);
         oed.compute(*output, label_indices);
     }
-    
-    
+     
     void publishEdge( ros::Publisher& pub, ros::Publisher& pub_indices,
                             const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, const std::vector<int>& indices,
                             const std_msgs::Header& header)
@@ -392,6 +434,79 @@ public:
         pcl::toROSMsg(*output, ros_output);
         ros_output.header = header;
         pub.publish(ros_output);
+    }
+    
+    /* Template Matching */
+    void templateMatchingPallet(cv::Mat img, cv::Mat templ, cv::Mat output)
+    {
+        cv::Mat img_display;
+        img.copyTo(img_display);
+        cv::Mat result;
+        int result_cols = img.cols - templ.cols + 1;
+        int result_rows = img.rows - templ.rows + 1;
+
+        result.create(result_rows, result_cols, CV_8U);
+
+        cv::Point matchLoc;
+        cv::Point minLoc;
+        cv::Point maxLoc;
+        double minVal;
+        double maxVal;
+
+        match_method_ = 0;
+        cv::matchTemplate(img, templ, result, match_method_);
+
+        cv::normalize(result, result, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+        cv::minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
+
+        if (match_method_  == 0)
+        {
+            match_method_ = cv::TM_SQDIFF;
+            matchLoc = minLoc;
+        } 
+        if (match_method_  == 1)
+        {
+            match_method_ == cv::TM_SQDIFF_NORMED;
+            matchLoc = minLoc;
+        }
+        if (match_method_  == 2)
+        {
+            match_method_ == cv::TM_CCORR;
+            matchLoc = maxLoc;
+        }
+        if (match_method_  == 3)
+        {
+            match_method_ == cv::TM_CCORR_NORMED;
+            matchLoc = maxLoc;
+        }
+        if (match_method_  == 4)
+        {
+            match_method_ == cv::TM_CCOEFF;
+            matchLoc = maxLoc;
+        }
+
+        cv::cvtColor(img_display, output, cv::COLOR_GRAY2BGR);
+
+        cv::rectangle( output, matchLoc, 
+            cv::Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), 
+            cv::Scalar(255, 0, 0), 2, 8, 0 );
+        cv::rectangle( result, matchLoc, 
+            cv::Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), 
+            cv::Scalar(255, 0, 0), 2, 8, 0 );
+
+        // img_display.copyTo(output);
+
+        if(opencv_show_)
+        {
+            cv::imshow( "Segment Image", img);
+            cv::imshow( "Template Matching", output);
+            cv::waitKey(3);
+        }
+        else 
+        {
+            cv::destroyAllWindows();
+        }
+
     }
     
     void pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
@@ -414,14 +529,46 @@ public:
         /* Plane Segment */    
         if(active_segment_)
         {
-            planeSegementation(cloud_, cloud_f_, cloud_rgb_);
+            pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
+            estimateNormalKdtree(cloud_.makeShared(), normals);
+            planeSegementation(cloud_, cloud_rgb_, normals);
+            
             pub_rgb_pointcloud.publish(cloud_rgb_);
-            pub_pallet_pointcloud_.publish(cloud_f_);
+            // pub_pallet_pointcloud_.publish(cloud_f_);
+            try
+            {
+                pcl::toROSMsg(cloud_rgb_, pallet_image_);
+   
+                pallet_image_.header = msg->header;   
+                // std::cout << "Image frame: " << pallet_image_.header.frame_id << std::endl;
+                // std::cout << "Image size h and w: " << pallet_image_.height << " and "
+                //                                     << pallet_image_.width << std::endl;
+            }
+            catch(std::runtime_error e)
+            {
+                ROS_ERROR_STREAM("Error in converting cloud to image message: "
+                                            << e.what());
+            }
+
+            cv_bridge::CvImagePtr cv_ptr;
+            cv_ptr = cv_bridge::toCvCopy(pallet_image_, sensor_msgs::image_encodings::RGB8);
+            cv_ptr->image = cv_ptr->image - cv::Scalar(255,0,0);
+
+            cv::Mat img_grey;
+            cv::cvtColor(cv_ptr->image, img_grey, CV_BGR2GRAY);
+
+            cv::Mat img_bw;
+            cv::threshold(img_grey, img_bw, 2.0, 255.0, CV_THRESH_BINARY);
+            source_img_ = img_bw;
+            // std::cout << "opencv image size: " << img_bw.size() << std::endl;
+
+            pub_image_.publish(pallet_image_);
         }
 
         /* Normal estimation*/
         pcl::PointCloud<pcl::Normal>::Ptr pointcloud_normal(new pcl::PointCloud<pcl::Normal>);
-        estimateNormal(cloud_.makeShared(), pointcloud_normal, msg->header);
+        estimateNormalIntegralImage(cloud_.makeShared(), pointcloud_normal);
+        // estimateNormalKdtree(cloud_.makeShared(), pointcloud_normal);
 
         /* Edge estimation*/
         pcl::PointCloud<pcl::Label>::Ptr label(new pcl::PointCloud<pcl::Label>);
@@ -438,7 +585,15 @@ public:
         publishEdge(pub_curvature_edges_, pub_curvature_edges_indices_,
                     cloud_.makeShared(), label_indices[3].indices, msg->header);
         publishEdge(pub_rgb_edges_, pub_rgb_edges_indices_,
-                    cloud_.makeShared(), label_indices[4].indices, msg->header);      
+                    cloud_.makeShared(), label_indices[4].indices, msg->header); 
+
+
+        templ_img = cv::imread("/home/cuongnguen/Techtile/auto_forklift/src/multi_pallet_detection/template/pallet1cell1cm.png", cv::IMREAD_GRAYSCALE);
+
+        templateMatchingPallet(source_img_, templ_img, result_img_);
+        std::cout << "output size: " << result_img_.size() << std::endl;
+
+
     }
 
     void reconfigCallback(multi_pallet_detection::palletDetectionReconfigureConfig &config, uint32_t level) {
@@ -454,6 +609,7 @@ public:
 
         // Segment
         active_segment_ = config.active_segment;
+        opencv_show_ = config.opencv_show;
         min_cluster_size_ = config. min_cluster_size;
         max_cluster_size_ = config.max_cluster_size;
         neighbor_number_ = config.neighbor_number;
@@ -462,6 +618,7 @@ public:
         k_search_ = config.k_search;
 
         // Edge Detection
+        visualize_normal_ = config.visualize_normal;
         depth_discontinuation_threshold_ = config.depth_discontinuation_threshold;
         max_search_neighbors_ = config.max_search_neighbors;
         use_nan_boundary_ = config.use_nan_boundary;

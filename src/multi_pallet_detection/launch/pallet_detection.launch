@@ -38,5 +38,8 @@
     <param name="use_curvature" value="false"/>
     <param name="use_rgb" value="false"/>
 
+    <!-- Template matching -->
+    <param name="match_method" value="0"/>
+
   </node>
 </launch>
