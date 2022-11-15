@@ -1,25 +1,29 @@
 <launch>
-  <node pkg="multi_pallet_detection" type="pallet_detection" name="pallet_detection" output = "screen" >
-    <!-- Parameters for pointcloud cutoff -->
+  <arg name="use_simulation" value="false"/>
+
+  <node pkg="multi_pallet_detection" type="pallet_detection" name="pallet_detection" 
+    output = "screen" if="$(arg use_simulation)">
     <param name="min_x_cutoff" value="-1.2"/>
     <param name="max_x_cutoff" value="1.2"/>
-    <param name="min_y_cutoff" value="0.0"/>
-    <param name="max_y_cutoff" value="2.7"/>
-    <param name="min_z_cutoff" value="0.2"/>
-    <param name="max_z_cutoff" value="1.5"/>
+    <param name="min_y_cutoff" value="0.42"/>
+    <param name="max_y_cutoff" value="0.7"/>
+    <param name="min_z_cutoff" value="1.2"/>
+    <param name="max_z_cutoff" value="3.5"/>
+    <param name="downsample_scale" value="2"/>
 
     <!-- Parameters for floor remove -->
-    <param name="active_remove_floor" value="true"/>
-    <param name="floor_distance_thresh" value="0.03"/>
+    <param name="remove_floor" value="true"/>
+    <param name="floor_distance_thresh" value="0.02"/>
 
     <!-- Parameters for pointcloud segementation -->
     <param name="plane_segment" value="true"/> 
-    <param name="min_cluster_size" value="5000"/>           
-    <param name="max_cluster_size" value="1000000"/>
-    <param name="neighbor_number" value="100"/>
-    <param name="curvature_thres" value="5.0"/>
-    <param name="smooth_thresh" value="10.0"/>
-    <param name="k_search" value="50"/>
+    <param name="opencv_show" value="true"/> 
+    <param name="min_cluster_size" value="2000"/>           
+    <param name="max_cluster_size" value="100000"/>
+    <param name="neighbor_number" value="30"/>
+    <param name="curvature_thres" value="2.0"/>
+    <param name="smooth_thresh" value="7.0"/>
+    <param name="k_search" value="10"/>
 
     <!-- Normal estimation -->
     <param name="normal_estimation_method" value="2"/> 
@@ -30,6 +34,60 @@
     <param name="depth_dependent_smoothing" value="true"/>
 
     <!-- Edge detection -->
+    <param name="visualize_normal" value="false"/>
+    <param name="depth_discontinuation_threshold" value="0.005"/>
+    <param name="max_search_neighbors" value="100"/>
+    <param name="use_nan_boundary" value="true"/>
+    <param name="use_occluding" value="true"/>
+    <param name="use_occluded" value="false"/>
+    <param name="use_curvature" value="false"/>
+    <param name="use_rgb" value="false"/>
+
+        <!-- Template matching -->
+    <param name="match_method" value="0"/>
+    <param name="template_matching_show" value="true"/>
+    <param name="scale_par_" value="1.0"/>
+    <param name="min_scale" value="0.9"/>
+    <param name="max_scale" value="1.8"/>
+    <param name="manual_scale" value="false"/>
+    <param name="thres" value="1.0"/>  <!--1e8 -->
+  </node>
+
+  <node pkg="multi_pallet_detection" type="pallet_detection" name="pallet_detection" 
+    output = "screen" unless="$(arg use_simulation)">
+    <!-- Parameters for pointcloud cutoff -->
+    <param name="min_x_cutoff" value="-1.2"/>
+    <param name="max_x_cutoff" value="1.2"/>
+    <param name="min_y_cutoff" value="0.0"/>
+    <param name="max_y_cutoff" value="2.7"/>
+    <param name="min_z_cutoff" value="0.2"/>
+    <param name="max_z_cutoff" value="1.5"/>
+    <param name="downsample_scale" value="2"/>
+
+    <!-- Parameters for floor remove -->
+    <param name="active_remove_floor" value="true"/>
+    <param name="floor_distance_thresh" value="0.03"/>
+
+    <!-- Parameters for pointcloud segementation -->
+    <param name="plane_segment" value="true"/> 
+
+    <param name="min_cluster_size" value="2000"/>           
+    <param name="max_cluster_size" value="1000000"/>
+    <param name="neighbor_number" value="100"/>
+    <param name="curvature_thres" value="5.0"/>
+    <param name="smooth_thresh" value="10.0"/>
+    <param name="k_search" value="130"/>
+
+    <!-- Normal estimation -->
+    <param name="normal_estimation_method" value="2"/> 
+    <param name="border_policy_ignore" value="false"/>
+    <param name="publish_normal" value="true"/>
+    <param name="normal_smoothing_size" value="30.0"/>
+    <param name="max_depth_change_factor" value="0.1"/>
+    <param name="depth_dependent_smoothing" value="true"/>
+
+    <!-- Edge detection -->
+    <param name="visualize_normal" value="false"/>
     <param name="depth_discontinuation_threshold" value="0.005"/>
     <param name="max_search_neighbors" value="100"/>
     <param name="use_nan_boundary" value="true"/>
@@ -40,6 +98,13 @@
 
     <!-- Template matching -->
     <param name="match_method" value="0"/>
+    <param name="opencv_show" value="true"/> 
+    <param name="template_matching_show" value="true"/>
+    <param name="scale_par" value="2.9"/>
+    <param name="min_scale" value="0.1"/>
+    <param name="max_scale" value="3.0"/>
+    <param name="manual_scale" value="false"/>
+    <param name="thres" value="1.5"/> <!--1e9 -->
 
   </node>
 </launch>

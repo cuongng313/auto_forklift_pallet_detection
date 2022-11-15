@@ -75,6 +75,7 @@
         "valarray": "cpp",
         "variant": "cpp",
         "bit": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "fft": "cpp"
     }
 }
