@@ -52,6 +52,7 @@
     <param name="manual_scale" value="false"/>
     <param name="thres" value="1.0"/>  <!--1e8 -->
     <param name="change_thres" value="0.2"/> <!--1e9 -->
+    <param name="scale_change_rate_" value="0.01"/>
   </node>
 
   <node pkg="multi_pallet_detection" type="pallet_detection" name="pallet_detection" 
@@ -63,7 +64,7 @@
     <param name="max_y_cutoff" value="2.7"/>
     <param name="min_z_cutoff" value="0.2"/>
     <param name="max_z_cutoff" value="1.5"/>
-    <param name="downsample_scale" value="3"/>
+    <param name="downsample_scale" value="2"/>
 
     <!-- Parameters for floor remove -->
     <param name="active_remove_floor" value="true"/>
@@ -101,12 +102,13 @@
     <param name="match_method" value="1"/>
     <param name="opencv_show" value="true"/> 
     <param name="template_matching_show" value="true"/>
-    <param name="scale_par" value="2.3"/>
+    <param name="scale_par" value="3.0"/>
     <param name="min_scale" value="1.1"/>
     <param name="max_scale" value="6.0"/>
     <param name="manual_scale" value="false"/>
     <param name="thres" value="1.2"/> <!--1e9 -->
-    <param name="change_thres" value="0.12"/> <!--1e9 -->
+    <param name="change_thres" value="0.12"/> 
+    <param name="scale_change_rate_" value="0.01"/>
 
   </node>
 </launch>

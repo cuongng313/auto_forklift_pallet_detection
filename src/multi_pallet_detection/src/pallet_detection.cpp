@@ -124,8 +124,9 @@ private:
     double max_scale_;
     bool manual_scale_;
     double thres_;
-    double optimal_scale_, last_optimal_scale_;
+    double optimal_scale_{0.0}, last_optimal_scale_{0.0};
     double change_thres_;
+    double scale_change_rate_;
 
     /* Common variables */
     pcl_PointCloud cloud_;
@@ -191,6 +192,7 @@ public:
         paramGet.param<bool>("manual_scale", manual_scale_, false);
         paramGet.param<double>("thres", thres_, 1.0);
         paramGet.param<double>("change_thres", change_thres_, 0.2);
+        paramGet.param<double>("scale_change_rate_", scale_change_rate_, 0.01);
 
         templ_img_ = cv::imread("/home/cuongnguen/Techtile/auto_forklift/src/multi_pallet_detection/template/pallet1cell1cm.png", cv::IMREAD_GRAYSCALE);
 
@@ -233,7 +235,6 @@ public:
 
     void filterPointCloud(pcl_PointCloud &input, pcl_PointCloud &output) 
     {
-        // Filter cloud
         pcl::PassThrough<pcl::PointXYZ> pass;
         pass.setInputCloud(input.makeShared());
         pass.setFilterFieldName ("z");
@@ -269,8 +270,6 @@ public:
         }
 
         output = *keypoints;
-
-        // std::cout << "pointcloud is organized: " << output.isOrganized() << std::endl;
     }
 
     void groundFilter(pcl_PointCloud &input, pcl_PointCloud &output)
@@ -529,21 +528,12 @@ public:
         double minVal;
         double maxVal;
 
-        match_method_ = 2;///////////////
-
+        match_method_ = 2;
         // Scale template to match the size of the image
-        if (manual_scale_)
-        {
-            // cv::resize(templ, templ, cv::Size(templ.cols*scale_par_, templ.rows*scale_par_),
-            //                         scale_par_, scale_par_);
-            // cv::matchTemplate(img, templ, result, match_method_);
-            // cv::minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
-            optimal_scale_ = scale_par_;
-        }
+        if (manual_scale_)  optimal_scale_ = scale_par_;
         else  // auto
         {
             double max_val_optimal = 0;
-            double min_val_optimal = 0;
             
             cv::Point min_loc_optimal;
             cv::Point max_loc_optimal;
@@ -572,15 +562,17 @@ public:
                 }
             }
         }
-
-        if (abs(optimal_scale_ - last_optimal_scale_) >= change_thres_ && last_optimal_scale_ != 0)
+        ROS_INFO("Optimal scale found: %f", optimal_scale_);
+        // keep scale rate in a threshold to avoid noise
+        if ((abs(optimal_scale_ - last_optimal_scale_) >= change_thres_) && (last_optimal_scale_ > 0.0))
         {
-            if(optimal_scale_ > last_optimal_scale_) optimal_scale_ = last_optimal_scale_ + 0.01;
-            else optimal_scale_ = last_optimal_scale_ - 0.01;
+            ROS_INFO("Adjust optimal scale");
+            if(optimal_scale_ > last_optimal_scale_) optimal_scale_ = last_optimal_scale_ + scale_change_rate_;
+            else optimal_scale_ = last_optimal_scale_ - scale_change_rate_;
         }
 
-        // ROS_INFO("Optimal scale: %f", optimal_scale_);
-        // ROS_INFO(" Last optimal scale: %f", last_optimal_scale_);
+        ROS_INFO("Optimal scale: %f", optimal_scale_);
+        ROS_INFO(" Last optimal scale: %f", last_optimal_scale_);
 
         cv::resize(templ, templ, cv::Size(templ.cols*optimal_scale_, 
                 templ.rows*optimal_scale_), optimal_scale_, optimal_scale_);
@@ -742,8 +734,7 @@ public:
 
         ros::Duration processing_time = end - begin;
         ROS_INFO("Processing time: %f \r\n", processing_time.toSec());
-
-        
+ 
         // /* Normal estimation*/
         // pcl::PointCloud<pcl::Normal>::Ptr pointcloud_normal(new pcl::PointCloud<pcl::Normal>);
         // estimateNormalIntegralImage(cloud_.makeShared(), pointcloud_normal);
@@ -813,6 +804,7 @@ public:
             max_scale_ = config.max_scale;
             thres_ = config.thres;
             change_thres_ = config.change_thres;
+            scale_change_rate_ = config.scale_change_rate;
         }    
     }
 
