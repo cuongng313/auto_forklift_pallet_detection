@@ -124,6 +124,8 @@ private:
     double max_scale_;
     bool manual_scale_;
     double thres_;
+    double optimal_scale_, last_optimal_scale_;
+    double change_thres_;
 
     /* Common variables */
     pcl_PointCloud cloud_;
@@ -188,6 +190,7 @@ public:
         paramGet.param<double>("max_scale", max_scale_, 1.6);
         paramGet.param<bool>("manual_scale", manual_scale_, false);
         paramGet.param<double>("thres", thres_, 1.0);
+        paramGet.param<double>("change_thres", change_thres_, 0.2);
 
         templ_img_ = cv::imread("/home/cuongnguen/Techtile/auto_forklift/src/multi_pallet_detection/template/pallet1cell1cm.png", cv::IMREAD_GRAYSCALE);
 
@@ -261,7 +264,7 @@ public:
         {
             for( size_t j = 0, jj = 0; j < keypoints->width; jj += downsample_scale_, j++)
             {
-                keypoints->at(j, i) = output.at(jj, ii); //at(column, row)
+                keypoints->at(j, i) = output.at(jj, ii);
             }
         }
 
@@ -362,7 +365,7 @@ public:
         }
         else
         {
-            std::cout << "no cluster found!" << std::endl;
+            ROS_INFO("no cluster found!");
             return 0;
         }
     }
@@ -528,19 +531,19 @@ public:
 
         match_method_ = 2;///////////////
 
-        double optimal_scale;
-
         // Scale template to match the size of the image
         if (manual_scale_)
         {
-            cv::resize(templ, templ, cv::Size(templ.cols*scale_par_, templ.rows*scale_par_),
-                                    scale_par_, scale_par_);
-            cv::matchTemplate(img, templ, result, match_method_);
-            cv::minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
+            // cv::resize(templ, templ, cv::Size(templ.cols*scale_par_, templ.rows*scale_par_),
+            //                         scale_par_, scale_par_);
+            // cv::matchTemplate(img, templ, result, match_method_);
+            // cv::minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
+            optimal_scale_ = scale_par_;
         }
         else  // auto
         {
             double max_val_optimal = 0;
+            double min_val_optimal = 0;
             
             cv::Point min_loc_optimal;
             cv::Point max_loc_optimal;
@@ -554,6 +557,7 @@ public:
             for(int i = min_scale_*10; i <= max_scale_*10; i++)
             {
                 scale_par_ = double(i)/10;
+                if (scale_par_ == 0) continue;
                 cv::resize(templ, templ_scale, cv::Size(original_temp_col*scale_par_, 
                             original_temp_row*scale_par_), scale_par_, scale_par_);
                 if((templ_scale.cols >= img.cols) || (templ_scale.rows >= img.rows)) break;
@@ -564,59 +568,70 @@ public:
                 if (maxVal > max_val_optimal) 
                 {
                     max_val_optimal = maxVal;
-                    min_loc_optimal = minLoc;
-                    max_loc_optimal = maxLoc;
-                    optimal_scale = scale_par_;
-
+                    optimal_scale_ = scale_par_;
                 }
             }
-            // resize the templ to the optimal scale value
-            cv::resize(templ, templ, cv::Size(original_temp_col*optimal_scale, 
-                original_temp_row*optimal_scale), optimal_scale, optimal_scale);
-            minLoc = min_loc_optimal;
-            maxLoc = max_loc_optimal;
-
-            ROS_INFO("Optimal scale: %f", optimal_scale);
-            ROS_INFO("maxVal: %f", maxVal);
         }
 
-        if (match_method_  == 0)
+        if (abs(optimal_scale_ - last_optimal_scale_) >= change_thres_ && last_optimal_scale_ != 0)
         {
-            match_method_ = cv::TM_SQDIFF;
-            matchLoc = minLoc;
-        } 
-        if (match_method_  == 1)
-        {
-            match_method_ == cv::TM_SQDIFF_NORMED;
-            matchLoc = minLoc;
-        }
-        if (match_method_  == 2)
-        {
-            match_method_ == cv::TM_CCORR;
-            matchLoc = maxLoc;
-        }
-        if (match_method_  == 3)
-        {
-            match_method_ == cv::TM_CCORR_NORMED;
-            matchLoc = maxLoc;
-        }
-        if (match_method_  == 4)
-        {
-            match_method_ == cv::TM_CCOEFF;
-            matchLoc = maxLoc;
+            if(optimal_scale_ > last_optimal_scale_) optimal_scale_ = last_optimal_scale_ + 0.01;
+            else optimal_scale_ = last_optimal_scale_ - 0.01;
         }
 
-        double thres_hold = thres_*100000000;
-        if (maxVal > thres_hold)
+        // ROS_INFO("Optimal scale: %f", optimal_scale_);
+        // ROS_INFO(" Last optimal scale: %f", last_optimal_scale_);
+
+        cv::resize(templ, templ, cv::Size(templ.cols*optimal_scale_, 
+                templ.rows*optimal_scale_), optimal_scale_, optimal_scale_);
+
+        last_optimal_scale_ = optimal_scale_;
+        if((templ.cols >= img.cols) || (templ.rows >= img.rows))
         {
+            ROS_INFO("Template is bigger than image");
+        }
+        else
+        {
+            cv::matchTemplate(img, templ, result, match_method_);
+            cv::minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
+
+            if (match_method_  == 0)
+            {
+                match_method_ = cv::TM_SQDIFF;
+                matchLoc = minLoc;
+            } 
+            if (match_method_  == 1)
+            {
+                match_method_ == cv::TM_SQDIFF_NORMED;
+                matchLoc = minLoc;
+            }
+            if (match_method_  == 2)
+            {
+                match_method_ == cv::TM_CCORR;
+                matchLoc = maxLoc;
+            }
+            if (match_method_  == 3)
+            {
+                match_method_ == cv::TM_CCORR_NORMED;
+                matchLoc = maxLoc;
+            }
+            if (match_method_  == 4)
+            {
+                match_method_ == cv::TM_CCOEFF;
+                matchLoc = maxLoc;
+            }
+
+            // ROS_INFO("Optimal scale: %f", optimal_scale_);
+            // ROS_INFO("maxVal: %f", maxVal);
+            // ROS_INFO("minVal: %f", minVal);
             double pose_x_local = double (matchLoc.x) + double (templ.cols)/2;
             double pose_y_local = double (matchLoc.y) + double (templ.rows)/2;
 
             double center_x = double(img.cols)/2;
             double center_y = double(img.rows)/2;
 
-            double pose_x_camera_frame = ((pose_x_local - center_x)/optimal_scale)/100;
-            double pose_y_camera_frame = ((pose_y_local - center_y)/optimal_scale)/100;
+            double pose_x_camera_frame = ((pose_x_local - center_x)/optimal_scale_)/100;
+            double pose_y_camera_frame = ((pose_y_local - center_y)/optimal_scale_)/100;
 
             // std::cout << "pose camera x, y: " << pose_x_camera_frame << ", " << pose_y_camera_frame << std::endl;
 
@@ -640,13 +655,12 @@ public:
                 if(template_matching_show_)
                 {
                     cv::imshow( "Template Matching", output);
-                    // cv::imshow( "Template Matching Result", result);
+                    cv::imshow( "Template image", templ);
                 }
                 cv::waitKey(1);
             }
             else cv::destroyAllWindows();
         }
-        else ROS_INFO("Template matching is low quality!");
     }
     
     void pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
@@ -661,6 +675,10 @@ public:
         cloud_ = cloud_f_;
         pub_filtered_pointcloud_.publish(cloud_);
 
+        // ros::Time filter_time = ros::Time::now();
+        // ros::Duration processing_filter_time = filter_time - begin;
+        // ROS_INFO("Processing filter time: %f", processing_filter_time.toSec());
+
         /* Clear the PC from floor points */
         if(active_remove_floor_)
         {
@@ -668,6 +686,10 @@ public:
             cloud_ = cloud_f_;
             pub_ground_filtered_pointcloud_.publish(cloud_);
         }
+
+        // ros::Time floor_remove_time = ros::Time::now();
+        // ros::Duration floor_remove_processing_time = floor_remove_time - begin;
+        // ROS_INFO("Processing floor remove time: %f", floor_remove_processing_time.toSec());
 
         /* Plane Segment */    
         if(active_segment_)
@@ -790,6 +812,7 @@ public:
             min_scale_ = config.min_scale;
             max_scale_ = config.max_scale;
             thres_ = config.thres;
+            change_thres_ = config.change_thres;
         }    
     }
 

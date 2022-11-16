@@ -51,6 +51,7 @@
     <param name="max_scale" value="1.8"/>
     <param name="manual_scale" value="false"/>
     <param name="thres" value="1.0"/>  <!--1e8 -->
+    <param name="change_thres" value="0.2"/> <!--1e9 -->
   </node>
 
   <node pkg="multi_pallet_detection" type="pallet_detection" name="pallet_detection" 
@@ -62,7 +63,7 @@
     <param name="max_y_cutoff" value="2.7"/>
     <param name="min_z_cutoff" value="0.2"/>
     <param name="max_z_cutoff" value="1.5"/>
-    <param name="downsample_scale" value="2"/>
+    <param name="downsample_scale" value="3"/>
 
     <!-- Parameters for floor remove -->
     <param name="active_remove_floor" value="true"/>
@@ -71,12 +72,12 @@
     <!-- Parameters for pointcloud segementation -->
     <param name="plane_segment" value="true"/> 
 
-    <param name="min_cluster_size" value="2000"/>           
+    <param name="min_cluster_size" value="1200"/>           
     <param name="max_cluster_size" value="1000000"/>
     <param name="neighbor_number" value="100"/>
     <param name="curvature_thres" value="5.0"/>
     <param name="smooth_thresh" value="10.0"/>
-    <param name="k_search" value="130"/>
+    <param name="k_search" value="235"/>
 
     <!-- Normal estimation -->
     <param name="normal_estimation_method" value="2"/> 
@@ -97,14 +98,15 @@
     <param name="use_rgb" value="false"/>
 
     <!-- Template matching -->
-    <param name="match_method" value="0"/>
+    <param name="match_method" value="1"/>
     <param name="opencv_show" value="true"/> 
     <param name="template_matching_show" value="true"/>
-    <param name="scale_par" value="2.9"/>
-    <param name="min_scale" value="0.1"/>
-    <param name="max_scale" value="3.0"/>
+    <param name="scale_par" value="2.3"/>
+    <param name="min_scale" value="1.1"/>
+    <param name="max_scale" value="6.0"/>
     <param name="manual_scale" value="false"/>
-    <param name="thres" value="1.5"/> <!--1e9 -->
+    <param name="thres" value="1.2"/> <!--1e9 -->
+    <param name="change_thres" value="0.12"/> <!--1e9 -->
 
   </node>
 </launch>

@@ -1,0 +1,6 @@
+<launch>
+  <!-- Show in Rviz   -->
+  <node name="rviz" pkg="rviz" type="rviz" 
+            args="-d $(find multi_pallet_detection)/rviz/simulator.rviz"/>
+
+</launch>
