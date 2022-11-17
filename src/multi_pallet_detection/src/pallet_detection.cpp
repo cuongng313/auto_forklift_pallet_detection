@@ -8,7 +8,7 @@
 #include <pcl/conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/filters/passthrough.h>
+#include <pcl/common/centroid.h>
 
 /* Plane Segmentation */
 #include <pcl/sample_consensus/model_types.h>
@@ -117,7 +117,7 @@ private:
     cv::Mat templ_img_;
     cv::Mat source_img_;
     cv::Mat result_img_;
-    int match_method_ = 0;
+    int match_method_{0};
     bool template_matching_show_;
     double scale_par_;
     double min_scale_;
@@ -133,6 +133,7 @@ private:
     pcl_PointCloud cloud_f_;
     pcl_PointCloudRGB cloud_rgb_;
     sensor_msgs::Image pallet_image_;
+    pcl::PointXY pallet_point_xy_;
     geometry_msgs::PoseStamped pallet_pose_;
 
     bool init_reconfig_ = true;
@@ -311,7 +312,7 @@ public:
         normal_estimator.compute (*output);
     }
     
-    bool planeSegementation(pcl_PointCloud &input,pcl_PointCloudRGB &output, 
+    bool planeSegementation(pcl_PointCloud &input, pcl_PointCloudRGB &output, 
                             const pcl::PointCloud<pcl::Normal>::Ptr& normals)
     {
         pcl::RegionGrowing<pcl::PointXYZ, pcl::Normal> reg;
@@ -330,28 +331,11 @@ public:
         reg.extract (clusters);
 
         int cluster_size = clusters.size();
-        // std::vector<std::pair<long int, int> > vp;
-
-        // Filter out paller pointcloud
-        // for (int i = 0; i < clusters.size(); i++)
-        // {
-        //     vp.push_back(std::make_pair(clusters[i].indices.size(), i));
-        // }
-        // std::sort(vp.begin(), vp.end());
-
-        // int min_index = vp[0].second;
-        // int second_min_index = vp[1].second;
-        
-        // for (int i = 0; i < cluster_size; i++)
-        // {
-        //     std::cout << "Points of cluster [" << i << "]: " << vp[i].first << std::endl;
-        // }
 
         if (cluster_size != 0)
         {
             // std::cout << "Number of clusters is equal to " << clusters.size () << std::endl;
             // std::cout << "First cluster has " << clusters[0].indices.size () << " points." << std::endl;
-
             pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud ();
             colored_cloud->header.frame_id = input.header.frame_id;
 
@@ -367,6 +351,7 @@ public:
             ROS_INFO("no cluster found!");
             return 0;
         }
+
     }
 
     /* Edge detection module */
@@ -512,7 +497,7 @@ public:
     }
     
     /* Template Matching */
-    void templateMatchingPallet(cv::Mat img, cv::Mat templ, cv::Mat output, const std_msgs::Header& header)
+    void templateMatchingPallet(cv::Mat img, cv::Mat templ, cv::Mat output, const std_msgs::Header& header, pcl::PointXY &pallet_xy)
     {
         cv::Mat img_display;
         img.copyTo(img_display);
@@ -528,7 +513,7 @@ public:
         double minVal;
         double maxVal;
 
-        match_method_ = 2;
+        // match_method_ = 1;
         // Scale template to match the size of the image
         if (manual_scale_)  optimal_scale_ = scale_par_;
         else  // auto
@@ -562,7 +547,7 @@ public:
                 }
             }
         }
-        ROS_INFO("Optimal scale found: %f", optimal_scale_);
+        // ROS_INFO("Optimal scale found: %f", optimal_scale_);
         // keep scale rate in a threshold to avoid noise
         if ((abs(optimal_scale_ - last_optimal_scale_) >= change_thres_) && (last_optimal_scale_ > 0.0))
         {
@@ -571,8 +556,8 @@ public:
             else optimal_scale_ = last_optimal_scale_ - scale_change_rate_;
         }
 
-        ROS_INFO("Optimal scale: %f", optimal_scale_);
-        ROS_INFO(" Last optimal scale: %f", last_optimal_scale_);
+        // ROS_INFO("Optimal scale: %f", optimal_scale_);
+        // ROS_INFO(" Last optimal scale: %f", last_optimal_scale_);
 
         cv::resize(templ, templ, cv::Size(templ.cols*optimal_scale_, 
                 templ.rows*optimal_scale_), optimal_scale_, optimal_scale_);
@@ -613,7 +598,7 @@ public:
                 matchLoc = maxLoc;
             }
 
-            // ROS_INFO("Optimal scale: %f", optimal_scale_);
+            ROS_INFO("Optimal scale: %f", optimal_scale_);
             // ROS_INFO("maxVal: %f", maxVal);
             // ROS_INFO("minVal: %f", minVal);
             double pose_x_local = double (matchLoc.x) + double (templ.cols)/2;
@@ -625,16 +610,10 @@ public:
             double pose_x_camera_frame = ((pose_x_local - center_x)/optimal_scale_)/100;
             double pose_y_camera_frame = ((pose_y_local - center_y)/optimal_scale_)/100;
 
+            pallet_xy.x = pose_x_camera_frame;
+            pallet_xy.y = pose_y_camera_frame;
+
             // std::cout << "pose camera x, y: " << pose_x_camera_frame << ", " << pose_y_camera_frame << std::endl;
-
-            pallet_pose_.header.frame_id = header.frame_id;
-            pallet_pose_.pose.position.x = pose_x_camera_frame;
-            pallet_pose_.pose.position.y = pose_y_camera_frame;
-            pallet_pose_.pose.position.z = 1.2;
-
-            // std::cout << "pallet pose: " << pallet_pose_ << std::endl;
-
-            pub_pallet_pose_.publish(pallet_pose_);
 
             cv::cvtColor(img_display, output, cv::COLOR_GRAY2BGR);
             cv::rectangle( output, matchLoc, 
@@ -684,51 +663,89 @@ public:
         // ROS_INFO("Processing floor remove time: %f", floor_remove_processing_time.toSec());
 
         /* Plane Segment */    
-        if(active_segment_)
+
+        pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
+        estimateNormalKdtree(cloud_.makeShared(), normals);
+        bool check_segment = planeSegementation(cloud_, cloud_rgb_, normals);
+        
+        if (check_segment)
         {
-            pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
-            estimateNormalKdtree(cloud_.makeShared(), normals);
-            bool check_segment = planeSegementation(cloud_, cloud_rgb_, normals);
-            
-            if (check_segment)
+            pub_rgb_pointcloud.publish(cloud_rgb_);
+            if(cloud_rgb_.size() != 0)
             {
-                pub_rgb_pointcloud.publish(cloud_rgb_);
-                if(cloud_rgb_.size() != 0)
+                try
                 {
-                    try
-                    {
-                        pcl::toROSMsg(cloud_rgb_, pallet_image_);
-                        pallet_image_.header = msg->header;   
-                        // std::cout << "Image frame: " << pallet_image_.header.frame_id << std::endl;
-                        // std::cout << "Image size h and w: " << pallet_image_.height << " and "
-                        //                                     << pallet_image_.width << std::endl;
-                    }
-                    catch(std::runtime_error e)
-                    {
-                        ROS_ERROR_STREAM("Error in converting cloud to image message: "
-                                                    << e.what());
-                    }
-
-                    pub_image_.publish(pallet_image_); 
-
-                    /* Convert to CV image*/
-                    cv_bridge::CvImagePtr cv_ptr;
-                    cv_ptr = cv_bridge::toCvCopy(pallet_image_, sensor_msgs::image_encodings::RGB8);
-                    cv_ptr->image = cv_ptr->image - cv::Scalar(255,0,0);
-
-                    cv::Mat img_grey;
-                    cv::cvtColor(cv_ptr->image, img_grey, CV_BGR2GRAY);
-
-                    cv::Mat img_bw;
-                    cv::threshold(img_grey, img_bw, 2.0, 255.0, CV_THRESH_BINARY);
-                    source_img_ = img_bw;
-
-                    /* Template matching */
-                    templateMatchingPallet(source_img_, templ_img_, result_img_, msg->header);
+                    pcl::toROSMsg(cloud_rgb_, pallet_image_);
+                    pallet_image_.header = msg->header;   
+                    // std::cout << "Image frame: " << pallet_image_.header.frame_id << std::endl;
+                    // std::cout << "Image size h and w: " << pallet_image_.height << " and "
+                    //                                     << pallet_image_.width << std::endl;
                 }
-                else ROS_INFO("No segment!");
+                catch(std::runtime_error e)
+                {
+                    ROS_ERROR_STREAM("Error in converting cloud to image message: "
+                                                << e.what());
+                }
+
+                pub_image_.publish(pallet_image_); 
+
+                /* Convert to CV image*/
+                cv_bridge::CvImagePtr cv_ptr;
+                cv_ptr = cv_bridge::toCvCopy(pallet_image_, sensor_msgs::image_encodings::RGB8);
+                cv_ptr->image = cv_ptr->image - cv::Scalar(255,0,0);
+
+                cv::Mat img_grey;
+                cv::cvtColor(cv_ptr->image, img_grey, CV_BGR2GRAY);
+
+                cv::Mat img_bw;
+                cv::threshold(img_grey, img_bw, 2.0, 255.0, CV_THRESH_BINARY);
+                source_img_ = img_bw;
+
+                /* Template matching */
+                templateMatchingPallet(source_img_, templ_img_, result_img_, msg->header, pallet_point_xy_);
+            
+                // /* get XYZ position of the pallet, z calculate from depth of cluster*/
+                // pcl_PointCloud::Ptr normal_cloud(new pcl_PointCloud);
+                // pcl::copyPointCloud(cloud_rgb_, *normal_cloud);
+
+                // pcl::CentroidPoint<pcl::PointXYZ> center_point;
+                // for (int i = 0; i < normal_cloud->width; i++)
+                // {
+                //     for (int j = 0; j < normal_cloud->height; j++)
+                //     {
+                //         if (isnan(normal_cloud->at(i,j).x) || isnan(normal_cloud->at(i,j).y)
+                //             || isnan(normal_cloud->at(i,j).z)) continue;
+                //         center_point.add(normal_cloud->at(i,j));
+                //     }
+                // }
+
+                // pcl::PointXYZ center_pointxyz;
+                // center_point.get(center_pointxyz);
+                // // std::cout << "Center point x,y,z: " << center_pointxyz.x << " "
+                // //                                     << center_pointxyz.y << " "
+                // //                                 << center_pointxyz.z << std::endl;
+
+                // pallet_pose_.header.frame_id = msg->header.frame_id;
+                // pallet_pose_.pose.position.x = pallet_point_xy_.x;
+                // pallet_pose_.pose.position.y = pallet_point_xy_.y;
+                // pallet_pose_.pose.position.z = center_pointxyz.z;
+
+                // pub_pallet_pose_.publish(pallet_pose_);
+
+                // // Estimate normal of the plane
+                // pcl::PointCloud <pcl::Normal>::Ptr pallet_normals (new pcl::PointCloud <pcl::Normal>);
+                // estimateNormalKdtree(normal_cloud, pallet_normals);
+
+                // // std::cout << "Normals number: " << normal_cloud->size() << std::endl;
+                // // pcl::CentroidPoint<pcl::Normal> center_normal;
+
             }
+            else ROS_INFO("Segment size = 0!");
         }
+        else ROS_INFO("No segment!");
+   
+
+
 
         ros::Time end = ros::Time::now();
 
@@ -798,6 +815,7 @@ public:
 
             //template matching
             template_matching_show_ = config.template_matching_show;
+            match_method_ = config.match_method;
             scale_par_ = config.scale_par;
             manual_scale_ = config.manual_scale;
             min_scale_ = config.min_scale;
