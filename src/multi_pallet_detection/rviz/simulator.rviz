@@ -7,7 +7,9 @@ Panels:
         - /Status1
         - /Grid1/Offset1
         - /TF1/Frames1
-        - /FilterCutoffPointcloud1
+        - /PlaneSegment1
+        - /PalletPointCloud1
+        - /Pose1
       Splitter Ratio: 0.530434787273407
     Tree Height: 470
   - Class: rviz/Selection
@@ -58,7 +60,19 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        camera_aligned_depth_to_color_frame:
+        base_footprint:
+          Value: false
+        base_link:
+          Value: false
+        base_scan:
+          Value: false
+        box:
+          Value: false
+        box1:
+          Value: false
+        box2:
+          Value: false
+        camera_bottom_screw_frame:
           Value: false
         camera_color_frame:
           Value: false
@@ -68,7 +82,23 @@ Visualization Manager:
           Value: false
         camera_depth_optical_frame:
           Value: false
+        camera_left_ir_frame:
+          Value: false
+        camera_left_ir_optical_frame:
+          Value: false
         camera_link:
+          Value: false
+        camera_right_ir_frame:
+          Value: false
+        camera_right_ir_optical_frame:
+          Value: false
+        imu_link:
+          Value: false
+        lift_link:
+          Value: false
+        odom:
+          Value: false
+        sideshift_link:
           Value: false
       Marker Alpha: 1
       Marker Scale: 1
@@ -77,15 +107,21 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        camera_link:
-          camera_aligned_depth_to_color_frame:
-            camera_color_optical_frame:
-              {}
-          camera_color_frame:
-            {}
-          camera_depth_frame:
-            camera_depth_optical_frame:
-              {}
+        lift_link:
+          camera_bottom_screw_frame:
+            camera_link:
+              camera_depth_frame:
+                camera_color_frame:
+                  camera_color_optical_frame:
+                    {}
+                camera_depth_optical_frame:
+                  {}
+                camera_left_ir_frame:
+                  camera_left_ir_optical_frame:
+                    {}
+                camera_right_ir_frame:
+                  camera_right_ir_optical_frame:
+                    {}
       Update Interval: 0
       Value: true
     - Alpha: 0.10000000149011612
@@ -176,7 +212,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -191,7 +227,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -204,7 +240,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -219,7 +255,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -229,10 +265,10 @@ Visualization Manager:
       Axis: Z
       Channel Name: intensity
       Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: RGB8
+      Color: 239; 41; 41
+      Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -242,28 +278,56 @@ Visualization Manager:
       Selectable: true
       Size (Pixels): 3
       Size (m): 0.009999999776482582
-      Style: Points
+      Style: Squares
       Topic: /pd_pallet_rgb_pointcloud
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 32; 74; 135
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: PalletPointCloud
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.019999999552965164
+      Style: Flat Squares
+      Topic: /pd_pallet_pointcloud
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.009999999776482582
       Class: rviz/Pose
       Color: 255; 25; 0
-      Enabled: false
+      Enabled: true
       Head Length: 0.30000001192092896
-      Head Radius: 0.10000000149011612
+      Head Radius: 0.05000000074505806
       Name: Pose
       Queue Size: 1
       Shaft Length: 1
-      Shaft Radius: 0.05000000074505806
-      Shape: Axes
+      Shaft Radius: 0.019999999552965164
+      Shape: Arrow
       Topic: /pd_pallet_pose
       Unreliable: false
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -288,34 +352,6 @@ Visualization Manager:
       Size (m): 0.009999999776482582
       Style: Flat Squares
       Topic: /pd_output_nan_boundary_edge
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: OccludedEdge
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.009999999776482582
-      Style: Flat Squares
-      Topic: /pd_output_occluded_edge
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -404,7 +440,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.2986092567443848
+      Distance: 2.619246482849121
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -412,17 +448,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.04999072849750519
-        Y: -0.41488713026046753
-        Z: 0.45279961824417114
+        X: 2.3577940464019775
+        Y: 0.2528097629547119
+        Z: -0.15760649740695953
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.029796842485666275
+      Pitch: 0.5147972702980042
       Target Frame: <Fixed Frame>
-      Yaw: 3.09049654006958
+      Yaw: 3.265530824661255
     Saved: ~
 Window Geometry:
   Displays:

@@ -1,11 +1,11 @@
 <launch>
-  <arg name="use_simulation" value="false"/>
+  <arg name="use_simulation" value="true"/>
 
   <node pkg="multi_pallet_detection" type="pallet_detection" name="pallet_detection" 
     output = "screen" if="$(arg use_simulation)">
     <param name="min_x_cutoff" value="-1.2"/>
     <param name="max_x_cutoff" value="1.2"/>
-    <param name="min_y_cutoff" value="0.42"/>
+    <param name="min_y_cutoff" value="0.25"/>
     <param name="max_y_cutoff" value="0.7"/>
     <param name="min_z_cutoff" value="0.2"/>
     <param name="max_z_cutoff" value="3.5"/>
@@ -16,7 +16,7 @@
     <param name="floor_distance_thresh" value="0.02"/>
 
     <!-- Parameters for pointcloud segementation -->
-    <param name="plane_segment" value="true"/> 
+    <param name="active_segment" value="false"/> 
     <param name="opencv_show" value="true"/> 
     <param name="min_cluster_size" value="300"/>           
     <param name="max_cluster_size" value="100000"/>
@@ -44,7 +44,7 @@
     <param name="use_rgb" value="false"/>
 
         <!-- Template matching -->
-    <param name="match_method" value="3"/>
+    <param name="match_method" value="2"/>
     <param name="template_matching_show" value="true"/>
     <param name="scale_par_" value="1.0"/>
     <param name="min_scale" value="0.4"/>
@@ -63,7 +63,7 @@
     <param name="min_y_cutoff" value="0.0"/>
     <param name="max_y_cutoff" value="2.7"/>
     <param name="min_z_cutoff" value="0.2"/>
-    <param name="max_z_cutoff" value="1.5"/>
+    <param name="max_z_cutoff" value="1.7"/>
     <param name="downsample_scale" value="2"/>
 
     <!-- Parameters for floor remove -->
@@ -71,8 +71,7 @@
     <param name="floor_distance_thresh" value="0.03"/>
 
     <!-- Parameters for pointcloud segementation -->
-    <param name="plane_segment" value="true"/> 
-
+    <param name="active_segment" value="false"/> 
     <param name="min_cluster_size" value="1200"/>           
     <param name="max_cluster_size" value="1000000"/>
     <param name="neighbor_number" value="100"/>

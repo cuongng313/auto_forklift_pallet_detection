@@ -20,7 +20,6 @@
 #include <pcl/filters/crop_box.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/statistical_outlier_removal.h>
-#include <pcl/segmentation/extract_clusters.h>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/search/search.h>
@@ -260,24 +259,20 @@ public:
         pass.setKeepOrganized(true);
         pass.filter (output); 
 
-        if(downsample_scale_ > 1)
+        pcl_PointCloud::Ptr keypoints (new pcl_PointCloud);
+        keypoints->width = output.width / downsample_scale_;
+        keypoints->height = output.height / downsample_scale_;
+        keypoints->points.resize(keypoints->width * keypoints->height);
+        keypoints->header = output.header;
+        for( size_t i = 0, ii = 0; i < keypoints->height; ii += downsample_scale_, i++)
         {
-            pcl_PointCloud::Ptr keypoints (new pcl_PointCloud);
-            keypoints->width = output.width / downsample_scale_;
-            keypoints->height = output.height / downsample_scale_;
-            keypoints->points.resize(keypoints->width * keypoints->height);
-            keypoints->header = output.header;
-            for( size_t i = 0, ii = 0; i < keypoints->height; ii += downsample_scale_, i++)
+            for( size_t j = 0, jj = 0; j < keypoints->width; jj += downsample_scale_, j++)
             {
-                for( size_t j = 0, jj = 0; j < keypoints->width; jj += downsample_scale_, j++)
-                {
-                    keypoints->at(j, i) = output.at(jj, ii);
-                }
+                keypoints->at(j, i) = output.at(jj, ii);
             }
-            output = *keypoints;
         }
 
-        
+        output = *keypoints;
     }
 
     void groundFilter(pcl_PointCloud &input, pcl_PointCloud &output)
@@ -346,59 +341,11 @@ public:
             pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud ();
             colored_cloud->header.frame_id = input.header.frame_id;
 
-            // output = *colored_cloud;
-
             pcl::ExtractIndices<pcl::PointXYZRGB> extract;
             extract.setInputCloud (colored_cloud);
             extract.setIndices (boost::make_shared<std::vector<int> > (clusters[0].indices));
             extract.setKeepOrganized (true);
             extract.filter (output);
-            return 1;
-        }
-        else
-        {
-            ROS_INFO("no cluster found!");
-            return 0;
-        }
-
-    }
-
-    bool euclidplaneSegementation(pcl_PointCloud &input, pcl_PointCloudRGB &output, 
-                            const pcl::PointCloud<pcl::Normal>::Ptr& normals)
-    {
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
-        cloud.reset(new pcl::PointCloud<pcl::PointXYZ>());
-        pcl::copyPointCloud(input, *cloud);
-
-        pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-        tree->setInputCloud(input.makeShared());
-
-        pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-        ec.setClusterTolerance(curvature_thres_);
-        ec.setMinClusterSize(min_cluster_size_);
-        ec.setMaxClusterSize(max_cluster_size_);
-        ec.setSearchMethod(tree);
-        ec.setInputCloud(input.makeShared());
-
-        std::vector <pcl::PointIndices> cluster_indices;
-        ec.extract(cluster_indices);
-
-        int cluster_size = cluster_indices.size();
-        std::cout << "Number of clusters is equal to " << cluster_size << std::endl;
-        if (cluster_size != 0)
-        {
-            int j = 0;
-            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
-            for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
-            {    
-                for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
-                cloud_cluster->push_back ((input)[*pit]); //*
-                cloud_cluster->width = cloud_cluster->size ();
-                cloud_cluster->height = 1;
-                cloud_cluster->is_dense = true;
-                j++;
-            }
-            pub_rgb_pointcloud.publish(cloud_cluster);
             return 1;
         }
         else
@@ -681,7 +628,7 @@ public:
                 if(template_matching_show_)
                 {
                     cv::imshow( "Template Matching", output);
-                    // cv::imshow( "Template image", templ);
+                    cv::imshow( "Template image", templ);
                 }
                 cv::waitKey(1);
             }
@@ -692,6 +639,8 @@ public:
     void pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
     {   
         pcl::fromROSMsg(*msg, cloud_);  
+        // std::cout << "point size h and w: " << msg->height << " and " << msg->width << std::endl;
+
         ros::Time begin = ros::Time::now();
 
         /* Filter pointcloud */
@@ -700,188 +649,162 @@ public:
         pub_filtered_pointcloud_.publish(cloud_);
 
         /* Clear the PC from floor points */
-        groundFilter(cloud_, cloud_f_);
-        cloud_ = cloud_f_;
-        pub_ground_filtered_pointcloud_.publish(cloud_);
-
-        /* Cut off the fork points*/
-        pcl::PassThrough<pcl::PointXYZ> pass;
-        pass.setInputCloud(cloud_.makeShared());
-        pass.setFilterFieldName ("z");
-        pass.setFilterLimits(1.2, 3.5);
-        pass.setKeepOrganized(true);
-        pass.filter (cloud_f_); 
-        cloud_ = cloud_f_;
-
-        pcl_PointCloud::Ptr min_z_points(new pcl_PointCloud);
-        min_z_points->header = cloud_.header;
-        double max_value_of_min_z_point = 0;
-        for (int i = 0; i < cloud_.width; i++)
+        if(active_remove_floor_)
         {
-            double min_z = 5;           //initial meter
-            int index = 0;
-            pcl::PointXYZ point_min_z;
-            for (int j = 0; j < cloud_.height; j++)
-            {
-                if (isnan(cloud_.at(i,j).x) || isnan(cloud_.at(i,j).y) || isnan(cloud_.at(i,j).z))
-                    continue;
-                if (cloud_.at(i,j).z < min_z)
-                {
-                    min_z = cloud_.at(i,j).z;
-                    index = j;
-                } 
-            }
-            if (isnan(cloud_.at(i,index).x) || isnan(cloud_.at(i,index).y) || isnan(cloud_.at(i,index).z))
-                continue;
-            point_min_z.x = cloud_.at(i,index).x;
-            point_min_z.y = cloud_.at(i,index).y;
-            point_min_z.z = cloud_.at(i,index).z;
-            min_z_points->push_back(point_min_z);
-        } 
-        pub_rgb_pointcloud.publish(min_z_points);
-
-        std::cout << "min z point size: " << min_z_points->size() << std::endl;
-        if (min_z_points->size() != 0)
-        {
-            /* get Z position of the pallet, z calculate from depth of cluster*/
-            pcl::CentroidPoint<pcl::PointXYZ> center_point;
-
-            for (int i = 0; i < min_z_points->size(); i ++)
-            {
-                if (max_value_of_min_z_point < min_z_points->at(i).z) max_value_of_min_z_point = min_z_points->at(i).z;
-                center_point.add(min_z_points->at(i));
-            }
-
-            pcl::PointXYZ center_pointxyz;
-            center_point.get(center_pointxyz);
-            std::cout << "Center point x,y,z: " << center_pointxyz.x << " "
-                                                << center_pointxyz.y << " "
-                                            << center_pointxyz.z << std::endl;
-
-            pallet_pose_.header.frame_id = msg->header.frame_id;
-            pallet_pose_.pose.position.z = center_pointxyz.z;
-
-            /* get yaw angle of the pallet */
-            double vector_pallet_x, vector_pallet_z;
-            vector_pallet_x = min_z_points->at(min_z_points->size()-1).x - min_z_points->at(0).x;
-            vector_pallet_z = min_z_points->at(min_z_points->size()-1).z - min_z_points->at(0).z;
-
-            double vector_length = sqrt(vector_pallet_x*vector_pallet_x + vector_pallet_z*vector_pallet_z);
-            double yaw_angle = acos(vector_pallet_z/vector_length);
-
-            // if (vector_pallet_x > 0) yaw_angle = yaw_angle - M_PI/2;
-            // if (vector_pallet_x < 0) yaw_angle = -yaw_angle - M_PI/2;
-            
-            double yaw_angle_degree = yaw_angle*180/M_PI;
-
-            std::cout << "estimate angle: " << yaw_angle_degree << std::endl;
-
-            tf2::Quaternion pallet_quaternion;
-            pallet_quaternion.setRPY(0, yaw_angle, 0);
-            pallet_quaternion = pallet_quaternion.normalize();
-
-            geometry_msgs::Quaternion pallet_final_quaternion;
-            tf2::convert(pallet_quaternion, pallet_final_quaternion);
-            pallet_pose_.pose.orientation = pallet_final_quaternion;
-
-            /* Cut off for only the end face of the pallet*/
-            // std::cout << "max z should be cut off: " << max_value_of_min_z_point << std::endl;
-            // pcl::PassThrough<pcl::PointXYZ> pass_cut_max;
-            // pass_cut_max.setInputCloud(cloud_.makeShared());
-            // pass_cut_max.setFilterFieldName ("z");
-            // pass_cut_max.setFilterLimits(1.2, max_value_of_min_z_point + 0.005); // 0.05 can be tuned
-            // pass_cut_max.setKeepOrganized(true);
-            // pass_cut_max.filter (cloud_f_); 
-            // cloud_ = cloud_f_;
-
-            pub_pallet_pointcloud_.publish(cloud_);
-
-            bool check_segment = 0;
-            if (active_segment_)
-            {
-                        // /* Plane Segment */    
-                pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
-                estimateNormalKdtree(cloud_.makeShared(), normals);
-                check_segment = planeSegementation(cloud_, cloud_rgb_, normals);
-                pub_rgb_pointcloud.publish(cloud_rgb_);
-            }
-            else
-            {
-                cloud_rgb_.width = cloud_.width;
-                cloud_rgb_.height = cloud_.height;
-                cloud_rgb_.points.resize(cloud_rgb_.width * cloud_rgb_.height);
-                cloud_rgb_.header = cloud_.header;
-                for( int i = 0; i < cloud_rgb_.width; i++ ) 
-                {
-                    for( int j = 0; j < cloud_rgb_.height; j++ ) 
-                    {
-                        pcl::PointXYZRGB point;
-                        point.x = cloud_.at(i,j).x;
-                        point.y = cloud_.at(i,j).y;
-                        point.z = cloud_.at(i,j).z;
-                        if (isnan(point.x) || isnan(point.y) || isnan(point.z)) 
-                        {
-                            point.r = 0; point.g = 0; point.b = 0;
-                        }
-                        else 
-                        {
-                            point.r = 255; point.g = 255; point.b = 255;
-                        }
-                        cloud_rgb_.at(i,j) = point;
-                    }
-                }
-                check_segment = 1;
-            }
-
-            if (check_segment)
-            {
-                // pub_rgb_pointcloud.publish(cloud_rgb_);
-                if(cloud_rgb_.size() != 0)
-                {       
-                    // Convert to opencv image
-                    cv::Mat cv_image;
-                    cv_image = cv::Mat(cloud_rgb_.height, cloud_rgb_.width, CV_8UC3);
-                    
-                    for( int y = 0; y < cv_image.rows; y++ ) 
-                    {
-                        for( int x = 0; x < cv_image.cols; x++ ) 
-                        {
-                            pcl::PointXYZRGB point = cloud_rgb_.at(x,y );
-
-                            cv_image.at<cv::Vec3b>( y, x )[0] = point.b;
-                            cv_image.at<cv::Vec3b>( y, x )[1] = point.g;
-                            cv_image.at<cv::Vec3b>( y, x )[2] = point.r;
-                        }
-                    }
-
-                    cv_image = cv_image - cv::Scalar(0,0,255);
-                    cv::Mat img_grey;
-                    cv::cvtColor(cv_image, img_grey, CV_BGR2GRAY);
-                    cv::Mat img_bw;
-                    cv::threshold(img_grey, img_bw, 2.0, 255.0, CV_THRESH_BINARY);
-                    source_img_ = img_bw;
-
-                    // cv::imshow("test", img_bw);
-                    // cv::waitKey(3);
-
-                    // /* Template matching */
-                    templateMatchingPallet(source_img_, templ_img_, result_img_, msg->header, pallet_point_xy_);
-                    pallet_pose_.pose.position.x = pallet_point_xy_.x;
-                    pallet_pose_.pose.position.y = pallet_point_xy_.y;
-
-                    pub_pallet_pose_.publish(pallet_pose_);
-
-                }
-                else ROS_INFO("Segment size = 0!");
-            }
-            else ROS_INFO("No segment!");
+            groundFilter(cloud_, cloud_f_);
+            cloud_ = cloud_f_;
+            pub_ground_filtered_pointcloud_.publish(cloud_);
         }
+
+        /* Plane Segment */    
+
+        pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
+        estimateNormalKdtree(cloud_.makeShared(), normals);
+        bool check_segment = planeSegementation(cloud_, cloud_rgb_, normals);
+
+        if (check_segment)
+        {
+            pub_rgb_pointcloud.publish(cloud_rgb_);
+            if(cloud_rgb_.size() != 0)
+            {
+                try
+                {
+                    pcl::toROSMsg(cloud_rgb_, pallet_image_);
+                    pallet_image_.header = msg->header;   
+                    // std::cout << "Image frame: " << pallet_image_.header.frame_id << std::endl;
+                    // std::cout << "Image size h and w: " << pallet_image_.height << " and "
+                    //                                     << pallet_image_.width << std::endl;
+                }
+                catch(std::runtime_error e)
+                {
+                    ROS_ERROR_STREAM("Error in converting cloud to image message: "
+                                                << e.what());
+                }
+
+                pub_image_.publish(pallet_image_); 
+
+                /* Convert to CV image*/
+                cv_bridge::CvImagePtr cv_ptr;
+                cv_ptr = cv_bridge::toCvCopy(pallet_image_, sensor_msgs::image_encodings::RGB8);
+                cv_ptr->image = cv_ptr->image - cv::Scalar(255,0,0);
+
+                cv::Mat img_grey;
+                cv::cvtColor(cv_ptr->image, img_grey, CV_BGR2GRAY);
+
+                cv::Mat img_bw;
+                cv::threshold(img_grey, img_bw, 2.0, 255.0, CV_THRESH_BINARY);
+                source_img_ = img_bw;
+
+                /* Template matching */
+                templateMatchingPallet(source_img_, templ_img_, result_img_, msg->header, pallet_point_xy_);
+            
+                /* get XYZ position of the pallet, z calculate from depth of cluster*/
+                pcl_PointCloud::Ptr normal_cloud(new pcl_PointCloud);
+                pcl::copyPointCloud(cloud_rgb_, *normal_cloud);
+
+                pcl::CentroidPoint<pcl::PointXYZ> center_point;
+                for (int i = 0; i < normal_cloud->width; i++)
+                {
+                    for (int j = 0; j < normal_cloud->height; j++)
+                    {
+                        if (isnan(normal_cloud->at(i,j).x) || isnan(normal_cloud->at(i,j).y)
+                            || isnan(normal_cloud->at(i,j).z)) continue;
+                        center_point.add(normal_cloud->at(i,j));
+                    }
+                }
+
+                pcl::PointXYZ center_pointxyz;
+                center_point.get(center_pointxyz);
+                // std::cout << "Center point x,y,z: " << center_pointxyz.x << " "
+                //                                     << center_pointxyz.y << " "
+                //                                 << center_pointxyz.z << std::endl;
+
+                pallet_pose_.header.frame_id = msg->header.frame_id;
+                pallet_pose_.pose.position.x = pallet_point_xy_.x;
+                pallet_pose_.pose.position.y = pallet_point_xy_.y;
+                pallet_pose_.pose.position.z = center_pointxyz.z;
+
+
+
+                // Estimate normal of the plane
+                pcl::PointCloud <pcl::Normal>::Ptr pallet_normals (new pcl::PointCloud <pcl::Normal>);
+                estimateNormalKdtree(normal_cloud, pallet_normals);
+
+                // std::cout << "Normals number: " << normal_cloud->size() << std::endl;
+                // std::cout << "pallet_normals  x,y,z: " << pallet_normals->at(1).normal_x << " "
+                //                                     << pallet_normals->at(1).normal_y << " "
+                //                                 << pallet_normals->at(1).normal_z << std::endl;
+                
+                pcl::CentroidPoint<pcl::Normal> center_normal;
+                for (int i = 0; i < pallet_normals->size(); i++)
+                {
+                    if (isnan(pallet_normals->at(i).normal_x) 
+                            || isnan(pallet_normals->at(i).normal_y)
+                            || isnan(pallet_normals->at(i).normal_z)) continue;
+                    center_normal.add(pallet_normals->at(i));
+                }
+
+                pcl::PointNormal center_normal_point;
+
+                center_normal.get(center_normal_point);
+
+                std::cout << "Normal center point x,y,z: " << center_normal_point.normal_x << " "
+                                                    << center_normal_point.normal_y << " "
+                                                << center_normal_point.normal_z << std::endl;
+                double normal_length = sqrt(center_normal_point.normal_x*center_normal_point.normal_x 
+                                    + center_normal_point.normal_z *center_normal_point.normal_z) ;
+                
+                double yaw_angle = acos(center_normal_point.normal_z/normal_length);
+
+                // yaw_angle = yaw_angle - M_PI/2;
+                if (center_normal_point.normal_x > 0) yaw_angle = yaw_angle - M_PI/2;
+                if (center_normal_point.normal_x < 0) yaw_angle = -yaw_angle - M_PI/2;
+                
+                double yaw_angle_degree = yaw_angle*180/M_PI;
+
+                std::cout << "estimate angle: " << yaw_angle_degree << std::endl;
+
+                tf2::Quaternion pallet_quaternion;
+                pallet_quaternion.setRPY(0, yaw_angle, 0);
+                pallet_quaternion = pallet_quaternion.normalize();
+
+                geometry_msgs::Quaternion pallet_final_quaternion;
+                tf2::convert(pallet_quaternion, pallet_final_quaternion);
+                pallet_pose_.pose.orientation = pallet_final_quaternion;
+
+                pub_pallet_pose_.publish(pallet_pose_);
+
+            }
+            else ROS_INFO("Segment size = 0!");
+        }
+        else ROS_INFO("No segment!");
+   
+
 
 
         ros::Time end = ros::Time::now();
         ros::Duration processing_time = end - begin;
         ROS_INFO("Processing time: %f \r\n", processing_time.toSec());
+ 
+        // /* Normal estimation*/
+        // pcl::PointCloud<pcl::Normal>::Ptr pointcloud_normal(new pcl::PointCloud<pcl::Normal>);
+        // estimateNormalIntegralImage(cloud_.makeShared(), pointcloud_normal);
+        // // estimateNormalKdtree(cloud_.makeShared(), pointcloud_normal);
 
+        // /* Edge estimation*/
+        // pcl::PointCloud<pcl::Label>::Ptr label(new pcl::PointCloud<pcl::Label>);
+        // std::vector<pcl::PointIndices> label_indices;
+
+        // estimateEdge(cloud_.makeShared(), pointcloud_normal, label, label_indices);
+
+        // publishEdge(pub_nan_boundary_edges_, pub_nan_boundary_edges_indices_,
+        //             cloud_.makeShared(), label_indices[0].indices, msg->header);
+        // publishEdge(pub_occluding_edges_, pub_occluding_edges_indices_,
+        //             cloud_.makeShared(), label_indices[1].indices, msg->header);
+        // publishEdge(pub_occluded_edges_, pub_occluded_edges_indices_,
+        //             cloud_.makeShared(), label_indices[2].indices, msg->header);
+        // publishEdge(pub_curvature_edges_, pub_curvature_edges_indices_,
+        //             cloud_.makeShared(), label_indices[3].indices, msg->header);
     }
 
     void reconfigCallback(multi_pallet_detection::palletDetectionReconfigureConfig &config, uint32_t level) 
