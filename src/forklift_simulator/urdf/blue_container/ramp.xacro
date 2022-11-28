@@ -1,0 +1,53 @@
+<?xml version="1.0" ?>
+
+<robot name="blue_container" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:macro name="con_ramp">
+ 
+
+  <link name="ramp_container_link">
+    <inertial>
+    <origin xyz="-1.8 0 0" rpy="0 0 0"/>
+     <xacro:box_inertia mass="1" x="3.6" y="2.2" z="0.005"/>
+    <mass value= "1"/>
+    </inertial>
+
+    <collision >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+        <mesh filename="$(find forklift_simulator)/urdf/blue_container/meshes/ramp.dae" />
+    </geometry>
+    </collision>
+
+    <visual >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+        <mesh filename="$(find forklift_simulator)/urdf/blue_container/meshes/ramp.dae" />
+    </geometry>
+    </visual>
+  </link>
+    
+  <joint name="ramp_container_joint" type="revolute">
+    <parent link="base_link" />
+    <child link="ramp_container_link" />
+    <origin xyz="0.0 0 0" rpy="0 0 3.14" />
+    <axis xyz="0 1 0" />
+    <limit lower="-3" upper="3" effort="1" velocity="0.3"/>
+     <dynamics damping="1" friction="0"/>
+  </joint>
+
+
+  <!-- <transmission name="trans_left_door">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="left_door_container_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor_trans_left_door">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission> -->
+
+ </xacro:macro>
+
+</robot>

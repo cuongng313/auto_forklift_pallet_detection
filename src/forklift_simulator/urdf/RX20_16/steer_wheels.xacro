@@ -67,10 +67,10 @@
     <axis xyz="0 0 1" />
     <!-- <joint_properties damping="1.0" friction="0.3"/> -->
         <limit effort="100" velocity="100"/>
-     <dynamics damping="0.01" friction="1.0"/>
+     <dynamics damping="0.01" friction="0.0"/>
   </joint>
 
-  <!-- <transmission name="trans_steering_${name}">
+  <transmission name="trans_steering_${name}">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="wheel_${name}_steering_joint">
       <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
@@ -79,7 +79,7 @@
       <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
-  </transmission> -->
+  </transmission>
 
   <!-- <transmission name="trans_dynamic_${name}">
     <type>transmission_interface/SimpleTransmission</type>
@@ -95,9 +95,10 @@
   <gazebo reference="wheel_${name}_link">
 			<mu1>1</mu1>
 			<mu2>1</mu2>
-			<kp>10000000.0</kp>
+			<!-- <kp>10000000.0</kp> -->
+			<kp>1000000000.0</kp>
 			<kd>1000.0</kd>
-			<minDepth>0.005</minDepth>
+			<minDepth>0.002</minDepth>
 			<maxVel>0</maxVel>		
 		</gazebo>
 

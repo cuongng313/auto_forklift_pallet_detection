@@ -15,7 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   dynamic_reconfigure
   sensor_msgs
   cv_bridge
-  image_transport
 )
 
 generate_dynamic_reconfigure_options(
@@ -24,7 +23,7 @@ generate_dynamic_reconfigure_options(
 
 catkin_package(
   INCLUDE_DIRS include
-#  LIBRARIES multi_pallet_detection
+  LIBRARIES multi_pallet_detection
 #  CATKIN_DEPENDS roscpp rospy std_msgs
 #  DEPENDS system_lib
 )
@@ -33,11 +32,9 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   include/eigen
-  ${catkin_DIRS}
 )
 
-# add_executable(plane_segmentation src/main.cpp src/plane_segmentation.cpp)
-# target_link_libraries(plane_segmentation ${catkin_LIBRARIES} pcl_visualization)
+link_directories(cfg)
 
 add_executable(pallet_detection src/pallet_detection.cpp)
 target_link_libraries(pallet_detection ${catkin_LIBRARIES} pcl_visualization)

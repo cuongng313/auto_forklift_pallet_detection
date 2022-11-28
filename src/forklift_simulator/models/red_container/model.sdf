@@ -32,6 +32,26 @@
           </mesh>
         </geometry>
       </visual>
+
+      <collision name="ramp_c">
+        <pose>0.0 3.0 -0.15 0 0 -1.57</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://red_container/meshes/container_ramp.dae</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="ramp_v">
+        <pose>0.0 3.0 -0.15 0 0 -1.57</pose>
+        <geometry>
+           <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://red_container/meshes/container_ramp.dae</uri>
+          </mesh>
+        </geometry>
+       
+      </visual>
     </link>
   </model>
 </sdf>

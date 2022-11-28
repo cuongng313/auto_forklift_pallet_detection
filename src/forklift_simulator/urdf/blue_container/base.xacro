@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+
+<robot name="blue_container" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <link name="base_footprint"/>
+
+  <link name="base_link">
+   <inertial>
+    <origin xyz="-6.0 0 1.15" rpy="0 0 0"/>
+     <xacro:box_inertia mass="20" x="12" y="2.3" z="2.3"/>
+    <mass value= "20"/>
+    </inertial>
+
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh
+          filename="$(find forklift_simulator)/urdf/blue_container/meshes/blue_container_high_cube.dae" />
+      </geometry>
+    </collision>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh
+        filename="$(find forklift_simulator)/urdf/blue_container/meshes/blue_container_high_cube.dae" />
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint" />
+    <child link="base_link" />
+    <origin xyz="0.0 0 0.010" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+
+
+</robot>

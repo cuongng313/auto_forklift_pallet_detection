@@ -4,12 +4,14 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
         - /Status1
         - /Grid1/Offset1
         - /TF1/Frames1
         - /PlaneSegment1
         - /PalletPointCloud1
         - /Pose1
+        - /PoseWithCovariance1
       Splitter Ratio: 0.530434787273407
     Tree Height: 470
   - Class: rviz/Selection
@@ -60,10 +62,12 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
+        back_nav_lidar:
+          Value: false
         base_footprint:
           Value: false
         base_link:
-          Value: false
+          Value: true
         base_scan:
           Value: false
         box:
@@ -77,17 +81,17 @@ Visualization Manager:
         camera_color_frame:
           Value: false
         camera_color_optical_frame:
-          Value: true
+          Value: false
         camera_depth_frame:
           Value: false
         camera_depth_optical_frame:
-          Value: false
+          Value: true
         camera_left_ir_frame:
           Value: false
         camera_left_ir_optical_frame:
           Value: false
         camera_link:
-          Value: false
+          Value: true
         camera_right_ir_frame:
           Value: false
         camera_right_ir_optical_frame:
@@ -100,6 +104,16 @@ Visualization Manager:
           Value: false
         sideshift_link:
           Value: false
+        tilt_link:
+          Value: false
+        wheel_left_driving_link:
+          Value: false
+        wheel_left_steering_link:
+          Value: false
+        wheel_right_driving_link:
+          Value: false
+        wheel_right_steering_link:
+          Value: false
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -107,21 +121,45 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        lift_link:
-          camera_bottom_screw_frame:
-            camera_link:
-              camera_depth_frame:
-                camera_color_frame:
-                  camera_color_optical_frame:
-                    {}
-                camera_depth_optical_frame:
-                  {}
-                camera_left_ir_frame:
-                  camera_left_ir_optical_frame:
-                    {}
-                camera_right_ir_frame:
-                  camera_right_ir_optical_frame:
-                    {}
+        odom:
+          base_footprint:
+            base_link:
+              imu_link:
+                {}
+              tilt_link:
+                lift_link:
+                  camera_bottom_screw_frame:
+                    camera_link:
+                      camera_depth_frame:
+                        camera_color_frame:
+                          camera_color_optical_frame:
+                            {}
+                        camera_depth_optical_frame:
+                          {}
+                        camera_left_ir_frame:
+                          camera_left_ir_optical_frame:
+                            {}
+                        camera_right_ir_frame:
+                          camera_right_ir_optical_frame:
+                            {}
+                  sideshift_link:
+                    box:
+                      {}
+                    box1:
+                      {}
+                    box2:
+                      {}
+              wheel_left_driving_link:
+                {}
+              wheel_left_steering_link:
+                {}
+              wheel_right_driving_link:
+                {}
+              wheel_right_steering_link:
+                {}
+            base_scan:
+              back_nav_lidar:
+                {}
       Update Interval: 0
       Value: true
     - Alpha: 0.10000000149011612
@@ -329,94 +367,41 @@ Visualization Manager:
       Unreliable: false
       Value: true
     - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz/PoseWithCovariance
+      Color: 255; 25; 0
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
         Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: NanBoundaryEdge
-      Position Transformer: XYZ
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: PoseWithCovariance
       Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.009999999776482582
-      Style: Flat Squares
-      Topic: /pd_output_nan_boundary_edge
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /pd_pallet_pose_kalman
       Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: OccludingEdge
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.009999999776482582
-      Style: Flat Squares
-      Topic: /pd_output_occluding_edge
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: RGB8
-      Decay Time: 0
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: PalletPointCloud
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.009999999776482582
-      Style: Flat Squares
-      Topic: /pallet_pointcloud
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 136; 138; 133
     Default Light: true
-    Fixed Frame: camera_link
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -440,7 +425,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2.619246482849121
+      Distance: 13.93017864227295
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -448,17 +433,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 2.3577940464019775
-        Y: 0.2528097629547119
-        Z: -0.15760649740695953
+        X: 0.3034648597240448
+        Y: -1.5565706491470337
+        Z: -2.5070605278015137
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5147972702980042
+      Pitch: 1.3697965145111084
       Target Frame: <Fixed Frame>
-      Yaw: 3.265530824661255
+      Yaw: 3.100532054901123
     Saved: ~
 Window Geometry:
   Displays:

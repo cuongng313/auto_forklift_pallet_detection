@@ -33,19 +33,23 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "container_keyboard_control_node");
     ros::NodeHandle node_handler;
 
-    ros::Publisher left_door_pub = node_handler.advertise<std_msgs::Float64>("/red_container/left_door_joint_controller/command", 1000);
-    ros::Publisher right_door_pub = node_handler.advertise<std_msgs::Float64>("/red_container/right_door_joint_controller/command", 1000);
+    ros::Publisher left_door_pub = node_handler.advertise<std_msgs::Float64>("/blue_container/left_door_joint_controller/command", 1000);
+    ros::Publisher right_door_pub = node_handler.advertise<std_msgs::Float64>("/blue_container/right_door_joint_controller/command", 1000);
+    ros::Publisher lift_pub = node_handler.advertise<std_msgs::Float64>("/blue_container/lift_joint_controller/command", 1000);
 
     ros::Rate loop_rate(10);
     bool terminate = false;
     float left_angle = 0.0;
     float right_angle = 0.0;
+    float lift_dis = 0.0;
+    float lift_step = 0.05;
     float angle_step = 0.1;
 
-    float angle_limit = 1.57;
+    float angle_limit = 3.14;
 
     std_msgs::Float64 left_door_msgs;
     std_msgs::Float64 right_door_msgs;
+    std_msgs::Float64 lift_msgs;
 
     char input;
 
@@ -53,6 +57,7 @@ int main(int argc, char **argv)
     std::cout << "press the following keys to control container door" << std::endl;
     std::cout << "  q  w    --for left door open and close" << std::endl;
     std::cout << "  e  r    --for right door open and close" << std::endl;
+    std::cout << "  a  z    --for lift up and down" << std::endl;
 
     std::cout << "c --for killing the node" << std::endl;
     while (ros::ok() && terminate == false)
@@ -74,6 +79,13 @@ int main(int argc, char **argv)
             {
                 left_angle = -angle_limit;
             }
+            break;
+        
+        case 'a':
+            lift_dis += lift_step;
+            break;
+        case 'z':
+            lift_dis -= lift_step;
             break;
 
         case 'r':
@@ -98,11 +110,14 @@ int main(int argc, char **argv)
         }
         left_door_msgs.data = left_angle;
         right_door_msgs.data = right_angle;
+        lift_msgs.data = lift_dis;
 
         std::cout << "left and right angle  " << left_angle << " " << right_angle << std::endl;
+        std::cout << "lift distance  " << lift_dis << " " << std::endl;
         std::cout << "   ------------- " << std::endl;
         left_door_pub.publish(left_door_msgs);
         right_door_pub.publish(right_door_msgs);
+        lift_pub.publish(lift_msgs);
 
         ros::spinOnce();
         loop_rate.sleep();

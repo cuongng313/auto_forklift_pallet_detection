@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     float drive_step = 0.2;
     float steer_step = 0.1;
     float forklift_tilt_step = 0.02;
-    float forklift_lift_step = 0.2;
+    float forklift_lift_step = 0.05;
     float forklift_sideshift_step = 0.05;
     float steer_limit = 1.0;
 

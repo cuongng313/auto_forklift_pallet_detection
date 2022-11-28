@@ -9,7 +9,8 @@
                 "/opt/ros/noetic/include/**",
                 "/home/cuongnguen/Techtile/auto_forklift/src/multi_pallet_detection/include/**",
                 "/home/cuongnguen/Techtile/auto_forklift/devel/include/multi_pallet_detection/**",
-                "/usr/include/**"
+                "/usr/include/**",
+                "/home/cuongnguen/Techtile/auto_forklift/devel/include"
             ],
             "name": "ROS",
             "intelliSenseMode": "gcc-x64",

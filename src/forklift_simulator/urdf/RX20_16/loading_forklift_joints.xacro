@@ -58,7 +58,7 @@
     <child link="lift_link" />
     <origin xyz="0.134 0 0.22" rpy="0 0 0" />
     <axis xyz="0 0 1" />
-    <limit lower="0.05" upper="2" effort="100" velocity="0.3"/>
+    <limit lower="-0.2" upper="2" effort="100" velocity="0.3"/>
      <dynamics damping="100.0" friction="1"/>
   </joint>
 
@@ -132,25 +132,65 @@
     </plugin>
   </gazebo>
 
-  <!-- <link name='box'>
+  <link name='box1'>
     <collision>
       <geometry>
-        <box size="1.2 0.8 0.1"/>
+        <box size="0.8 0.08 0.042"/>
       </geometry>
     </collision>
-    <visual>
+    <!-- <visual>
       <geometry>
-        <box size="1.2 0.8 0.1"/>
+        <box size="0.8 0.08 0.04"/>
       </geometry>
-    </visual>
+    </visual> -->
+  </link>
+
+  <joint name="pad_joint1" type="fixed">
+    <parent link="sideshift_link" />
+    <child link="box1" />
+    <origin xyz="0.4 0.189 0.02" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+  <link name='box2'>
+    <collision>
+      <geometry>
+        <box size="0.8 0.08 0.042"/>
+      </geometry>
+    </collision>
+    <!-- <visual>
+      <geometry>
+        <box size="0.8 0.08 0.04"/>
+      </geometry>
+    </visual> -->
+  </link>
+
+  <joint name="pad_joint2" type="fixed">
+    <parent link="sideshift_link" />
+    <child link="box2" />
+    <origin xyz="0.4 -0.189 0.02" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+  <link name='box'>
+    <collision>
+      <geometry>
+        <box size="0.02 0.2 0.1"/>
+      </geometry>
+    </collision>
+    <!-- <visual>
+      <geometry>
+        <box size="0.02 0.2 0.1"/>
+      </geometry>
+    </visual> -->
   </link>
 
   <joint name="pad_joint" type="fixed">
-    <parent link="tilt_link" />
+    <parent link="sideshift_link" />
     <child link="box" />
-    <origin xyz="0.7 0 0.06" rpy="0 0 0" />
+    <origin xyz="0.0 0.0 0.05" rpy="0 0 0" />
     <axis xyz="0 0 1" />
-  </joint> -->
+  </joint>
 
 
   </robot>
