@@ -8,8 +8,8 @@
   <link name="base_link">
    <inertial>
     <origin xyz="-0.8 0 0.417" rpy="0 0 0"/>
-     <xacro:box_inertia mass="50" x="1.843" y="1.1" z="0.835"/>
-    <mass value= "50"/>
+     <xacro:box_inertia mass="10" x="1.843" y="1.1" z="0.835"/>
+    <mass value= "10"/>
     </inertial>
 
     <collision>

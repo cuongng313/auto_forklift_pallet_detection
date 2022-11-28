@@ -1,0 +1,53 @@
+<?xml version="1.0" ?>
+
+<robot name="blue_container" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:macro name="container_lift">
+ 
+
+  <link name="lift_container_link">
+    <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+     <xacro:box_inertia mass="1" x="12" y="2.3" z="0.01"/>
+    <mass value= "1"/>
+    </inertial>
+
+    <collision >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+        <box size="12 2.3 0.01"/>
+    </geometry>
+    </collision>
+
+    <visual >
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+        <box size="12 2.3 0.01"/>
+    </geometry>
+    </visual>
+  </link>
+    
+  <joint name="lift_container_joint" type="prismatic">
+    <parent link="base_link" />
+    <child link="lift_container_link" />
+    <origin xyz="-6.0 0 -0.1" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.3" upper="0" effort="5000" velocity="0.3"/>
+     <dynamics damping="1000" friction="100"/>
+  </joint>
+
+
+  <transmission name="trans_lift">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="lift_container_joint">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="motor_trans_lift">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+ </xacro:macro>
+
+</robot>

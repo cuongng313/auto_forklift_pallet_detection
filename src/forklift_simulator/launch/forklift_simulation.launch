@@ -20,7 +20,7 @@
 
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen">
 			<param name="robot_description" command="$(find xacro)/xacro --inorder $(find forklift_simulator)/urdf/RX20_16/main.xacro" />
-    <remap from="/joint_states" to="/forklift/joint_states" />
+    <remap from="/joint_states" to="/RX20_16/joint_states" />
 
     <!-- <rosparam file="$(find forklift_simulator)/config/ackermansteer.yaml" command="load" ns="/forklift"/> -->
 
@@ -33,6 +33,6 @@
     <!-- ros_control robot launch file -->
     <!-- <include file="$(find forklift_simulator)/launch/forklift_control.launch"></include> -->
     <include file="$(find forklift_simulator)/launch/RX20_16_control.launch"></include>
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find forklift_simulator)/rviz/simulator.rviz"/>
+  
   </launch>
   

@@ -1,4 +1,0 @@
-<launch>
-  <node pkg="multi_pallet_detection" type="plane_segmentation" name="plane_segmentation" output = "screen" >
-  </node>
-</launch>

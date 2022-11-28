@@ -36,7 +36,7 @@
      <dynamics damping="0.01" friction="1.0"/>
   </joint>
 
-   <!-- <transmission name="trans_dynamic_${name}">
+   <transmission name="trans_dynamic_${name}">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="wheel_${name}_driving_joint">
       <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
@@ -45,14 +45,15 @@
       <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
-  </transmission> -->
+  </transmission>
 
   <gazebo reference="wheel_${name}_driving_link">
 			<mu1>1.0</mu1>
 			<mu2>1.0</mu2>
-			<kp>10000000.0</kp>
+			<!-- <kp>10000000.0</kp> -->
+			<kp>1000000000.0</kp>
 			<kd>1000.0</kd>
-			<minDepth>0.005</minDepth>
+			<minDepth>0.002</minDepth>
 			<maxVel>0</maxVel>		
 		</gazebo>
 

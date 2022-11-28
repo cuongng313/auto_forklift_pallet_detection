@@ -11,8 +11,7 @@
 <xacro:include filename="$(find forklift_simulator)/urdf/RX20_16/loading_forklift_joints.xacro" />
 <xacro:include filename="$(find forklift_simulator)/urdf/RX20_16/lib_ackermansteer.xacro" />
 
-<xacro:camera_d435 name="camera" topics_ns="camera" parent="base_link" 
-    publish_pointcloud="true"> <origin xyz="0.35 0 0.4" rpy="0 0.0 0" /> </xacro:camera_d435>  
+<xacro:camera_d435 name="camera" topics_ns="camera" parent="lift_link" publish_pointcloud="true"> <origin xyz="0.02 0 0.1" rpy="0 0 0" /> </xacro:camera_d435>  
 
 <xacro:rx20_steer_wheel name="left" x_steering="-1.429" y_steering="0.404" z_steering="0.06" radius="0.150" width="0.15" flip="-1" />
 <xacro:rx20_steer_wheel name="right" x_steering="-1.429" y_steering="-0.404" z_steering="0.06" radius="0.150" width="0.15" flip="-1" />
@@ -20,7 +19,11 @@
 <xacro:rx20_front_wheel name="right" x_loading="0.0" y_loading="0.466" z_loading="0.0" radius="0.18" width="0.18" flip="-1" />
 <xacro:rx20_front_wheel name="left" x_loading="0.0" y_loading="-0.466" z_loading="0.0" radius="0.18" width="0.18" flip="-1" />
 
-<xacro:nav_lidar name="one"  x="0.211"  y="-0.6" z="0.15" roll="0" pitch="0" yaw="1.57" resolution="1"/>
+<!-- <xacro:nav_lidar name="one"  x="0.5"  y="0.0" z="1.8" roll="0" pitch="0" yaw="0.0" resolution="1"/> -->
+
+<!-- <xacro:detection_lidar name="front"  x="0.0"  y="0.0" z="2.0" roll="0" pitch="0" yaw="0" resolution="1"/> -->
+
+<xacro:nav_lidar name="back"  x="0.2"  y="-0.6" z="-0.1" roll="0" pitch="0" yaw="1.57" resolution="1"/>
 <!-- <xacro:nav_lidar name="front"  x="0"  y="0.4" z="0.1" roll="0" pitch="0" yaw="-1.57" resolution="1"/> -->
 
 <!-- <xacro:detection_lidar name="front"  x="0.0"  y="0.0" z="0.6" roll="0" pitch="0" yaw="0" resolution="1"/> -->

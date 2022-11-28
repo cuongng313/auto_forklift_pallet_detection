@@ -1,8 +1,13 @@
 #include <ros/ros.h>
-#include <Eigen/Core>
-
+#include <string>
+#include <tf/transform_listener.h>
+#include <tf2/LinearMath/Quaternion.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <Eigen/Core>
 
 #include <pcl_ros/point_cloud.h>
 #include <pcl/conversions.h>
@@ -15,23 +20,21 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
 
-#include <pcl/filters/crop_box.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/segmentation/extract_clusters.h>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/search/search.h>
 #include <pcl/search/kdtree.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/passthrough.h>
-#include <pcl/filters/voxel_grid.h>
 #include <pcl/segmentation/region_growing.h>
 #include <pcl/features/integral_image_normal.h>
 #include <pcl/features/organized_edge_detection.h>
 #include <pcl/filters/conditional_removal.h> 
 #include <pcl/visualization/cloud_viewer.h>
 
-#include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -39,7 +42,7 @@
 #include "opencv2/imgcodecs.hpp"
 
 #include <dynamic_reconfigure/server.h>
-#include </home/cuongnguen/Techtile/auto_forklift/devel/include/multi_pallet_detection/palletDetectionReconfigureConfig.h>
+#include <multi_pallet_detection/palletDetectionReconfigureConfig.h>
 
 /* type define */
 typedef pcl::PointCloud<pcl::PointXYZ> pcl_PointCloud;
@@ -57,17 +60,9 @@ private:
     ros::Publisher pub_ground_filtered_pointcloud_;
     ros::Publisher pub_pallet_pointcloud_;
     ros::Publisher pub_rgb_pointcloud;
-
-    ros::Publisher pub_pointcloud_normal_;
-    ros::Publisher pub_nan_boundary_edges_indices_,
-      pub_occluding_edges_indices_, pub_occluded_edges_indices_,
-      pub_curvature_edges_indices_, pub_rgb_edges_indices_, pub_all_edges_indices_;
-    ros::Publisher pub_nan_boundary_edges_,
-      pub_occluding_edges_, pub_occluded_edges_,
-      pub_curvature_edges_, pub_rgb_edges_, pub_all_edges_;
-    ros::Publisher pub_image_;
-
     ros::Publisher pub_pallet_pose_;
+    ros::Publisher pub_pallet_pose_kalman_;
+    ros::Publisher pub_pallet_gt_;
 
     ros::Subscriber sub_point_cloud_;
     boost::shared_ptr <dynamic_reconfigure::Server<Config> > srv_;
@@ -103,17 +98,8 @@ private:
     double max_depth_change_factor_;
     bool depth_dependent_smoothing_;
 
-    /* Edge detection */
-    bool visualize_normal_;
-    double depth_discontinuation_threshold_;
-    int max_search_neighbors_;
-    bool use_nan_boundary_;
-    bool use_occluding_;
-    bool use_occluded_;
-    bool use_curvature_;
-    bool use_rgb_;
-
     /* Template matching */
+    std::string template_directory_;
     cv::Mat templ_img_;
     cv::Mat source_img_;
     cv::Mat result_img_;
@@ -127,6 +113,18 @@ private:
     double optimal_scale_{0.0}, last_optimal_scale_{0.0};
     double change_thres_;
     double scale_change_rate_;
+    bool tm_quality_;
+
+    /* Kalman filter */
+    Eigen::Vector3d init_pose_;
+    Eigen::Matrix3d init_cov_;
+    Eigen::Vector3d tracking_pose_;
+    Eigen::Matrix3d tracking_cov_;
+    double process_noise_;
+    double measure_noise_;
+    double pallet_gt_x_;
+    double pallet_gt_y_;
+    double pallet_gt_yaw_;
 
     /* Common variables */
     pcl_PointCloud cloud_;
@@ -135,6 +133,9 @@ private:
     sensor_msgs::Image pallet_image_;
     pcl::PointXY pallet_point_xy_;
     geometry_msgs::PoseStamped pallet_pose_;
+    geometry_msgs::PoseStamped pallet_pose_output_;
+    geometry_msgs::PoseStamped pallet_pose_gt_;
+    double pallet_yaw_angle_;
 
     bool init_reconfig_ = true;
 
@@ -174,17 +175,8 @@ public:
         paramGet.param<double>("max_depth_change_factor", max_depth_change_factor_, 0.02);
         paramGet.param<bool>("depth_dependent_smoothing", depth_dependent_smoothing_, false);
 
-        /* edge detection */
-        paramGet.param<bool>("visualize_normal", visualize_normal_, false);
-        paramGet.param<double>("depth_discontinuation_threshold", depth_discontinuation_threshold_, 0.04);
-        paramGet.param<int>("max_search_neighbors", max_search_neighbors_, 100);
-        paramGet.param<bool>("use_nan_boundary", use_nan_boundary_, true);
-        paramGet.param<bool>("use_occluding", use_occluding_, true);
-        paramGet.param<bool>("use_occluded", use_occluded_, true);
-        paramGet.param<bool>("use_curvature", use_curvature_, false);
-        paramGet.param<bool>("use_rgb", use_rgb_, false);
-
         /* template matching */
+        paramGet.param<std::string>("template_directory", template_directory_, "");
         paramGet.param<int>("match_method", match_method_, 0);
         paramGet.param<bool>("template_matching_show", template_matching_show_, false);
         paramGet.param<double>("scale_par", scale_par_, 1.0);
@@ -195,7 +187,14 @@ public:
         paramGet.param<double>("change_thres", change_thres_, 0.2);
         paramGet.param<double>("scale_change_rate_", scale_change_rate_, 0.01);
 
-        templ_img_ = cv::imread("/home/cuongnguen/Techtile/auto_forklift/src/multi_pallet_detection/template/pallet1cell1cm.png", cv::IMREAD_GRAYSCALE);
+        templ_img_ = cv::imread(template_directory_, cv::IMREAD_GRAYSCALE);
+
+        /* kalman filter */
+        paramGet.param<double>("process_noise", process_noise_, 0.001);
+        paramGet.param<double>("measure_noise", measure_noise_, 0.02);
+        paramGet.param<double>("pallet_gt_x", pallet_gt_x_, 0.02);
+        paramGet.param<double>("pallet_gt_y", pallet_gt_y_, 0.02);
+        paramGet.param<double>("pallet_gt_yaw", pallet_gt_yaw_, 0.02);
 
         /* ROS Subscriber */
         sub_point_cloud_ = nh_.subscribe<sensor_msgs::PointCloud2>("/camera/depth/color/points", 1, 
@@ -207,31 +206,23 @@ public:
         pub_pallet_pointcloud_ = nh_.advertise<pcl_PointCloudRGB>("pd_pallet_pointcloud", 1);
         pub_rgb_pointcloud = nh_.advertise<pcl_PointCloudRGB>("pd_pallet_rgb_pointcloud", 1);
 
-        // Edge indice publisher
-        pub_pointcloud_normal_ = nh_.advertise<PointCloudN>("pd_output_point_cloud_normal", 1);
-        pub_nan_boundary_edges_indices_ = nh_.advertise<PCLIndicesMsg>("pd_output_nan_boundary_edge_indices", 1);
-        pub_occluding_edges_indices_= nh_.advertise<PCLIndicesMsg>("pd_output_occluding_edge_indices", 1);
-        pub_occluded_edges_indices_= nh_.advertise<PCLIndicesMsg>("pd_output_occluded_edge_indices", 1);
-        pub_curvature_edges_indices_ = nh_.advertise<PCLIndicesMsg>("pd_output_curvature_edge_indices", 1);
-        pub_rgb_edges_indices_ = nh_.advertise<PCLIndicesMsg>("pd_output_rgb_edge_indices", 1);
-        pub_all_edges_indices_= nh_.advertise<PCLIndicesMsg>("pd_output_indices", 1);
-
-        // Edge publisher
-        pub_nan_boundary_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output_nan_boundary_edge", 1);
-        pub_occluding_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output_occluding_edge", 1);
-        pub_occluded_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output_occluded_edge", 1);
-        pub_curvature_edges_= nh_.advertise<sensor_msgs::PointCloud2>("pd_output_curvature_edge", 1);
-        pub_image_= nh_.advertise<sensor_msgs::Image>("pd_image_converted", 1);
-
         // Pallet pose publisher
         pub_pallet_pose_ = nh_.advertise<geometry_msgs::PoseStamped>("pd_pallet_pose", 1);
+        pub_pallet_pose_kalman_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("pd_pallet_pose_kalman", 1);
+        pub_pallet_gt_ = nh_.advertise<geometry_msgs::PoseStamped>("pd_pallet_pose_gt", 1);
 
         // dynamic reconfigure server
-
         srv_ = boost::make_shared <dynamic_reconfigure::Server<Config> > (paramGet);
         dynamic_reconfigure::Server<Config>::CallbackType f;
         f = boost::bind(&PalletDetection::reconfigCallback, this, _1, _2);
         srv_->setCallback(f);
+
+        // Pose in the coordinate of camera, ignore y, then only have the coordinate of x, z, pitch
+        init_pose_.x() = 0; init_pose_.y() = 2; init_pose_.z() = M_PI/2;
+        init_cov_.setIdentity(); init_cov_(0,0) = 10; init_cov_(1,1) = 10; init_cov_(2,2) = 10;
+    
+        tracking_pose_ = init_pose_;
+        tracking_cov_ = init_cov_;
     }
 
     void filterPointCloud(pcl_PointCloud &input, pcl_PointCloud &output) 
@@ -257,20 +248,22 @@ public:
         pass.setKeepOrganized(true);
         pass.filter (output); 
 
-        pcl_PointCloud::Ptr keypoints (new pcl_PointCloud);
-        keypoints->width = output.width / downsample_scale_;
-        keypoints->height = output.height / downsample_scale_;
-        keypoints->points.resize(keypoints->width * keypoints->height);
-        keypoints->header = output.header;
-        for( size_t i = 0, ii = 0; i < keypoints->height; ii += downsample_scale_, i++)
+        if(downsample_scale_ > 1)
         {
-            for( size_t j = 0, jj = 0; j < keypoints->width; jj += downsample_scale_, j++)
+            pcl_PointCloud::Ptr keypoints (new pcl_PointCloud);
+            keypoints->width = output.width / downsample_scale_;
+            keypoints->height = output.height / downsample_scale_;
+            keypoints->points.resize(keypoints->width * keypoints->height);
+            keypoints->header = output.header;
+            for( size_t i = 0, ii = 0; i < keypoints->height; ii += downsample_scale_, i++)
             {
-                keypoints->at(j, i) = output.at(jj, ii);
+                for( size_t j = 0, jj = 0; j < keypoints->width; jj += downsample_scale_, j++)
+                {
+                    keypoints->at(j, i) = output.at(jj, ii);
+                }
             }
-        }
-
-        output = *keypoints;
+            output = *keypoints;
+        }  
     }
 
     void groundFilter(pcl_PointCloud &input, pcl_PointCloud &output)
@@ -339,6 +332,8 @@ public:
             pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud ();
             colored_cloud->header.frame_id = input.header.frame_id;
 
+            // output = *colored_cloud;
+
             pcl::ExtractIndices<pcl::PointXYZRGB> extract;
             extract.setInputCloud (colored_cloud);
             extract.setIndices (boost::make_shared<std::vector<int> > (clusters[0].indices));
@@ -354,150 +349,9 @@ public:
 
     }
 
-    /* Edge detection module */
-    void estimateNormalIntegralImage( const pcl_PointCloud::Ptr &input,
-                            pcl::PointCloud<pcl::Normal>::Ptr output)
-    {
-        pcl::IntegralImageNormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-        if (normal_estimation_method_ == 0) 
-        {
-            ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
-        }
-        else if (normal_estimation_method_ == 1) 
-        {
-            ne.setNormalEstimationMethod (ne.COVARIANCE_MATRIX);
-        }
-        else if (normal_estimation_method_ == 2) 
-        {
-            ne.setNormalEstimationMethod (ne.AVERAGE_DEPTH_CHANGE);
-        }
-        else 
-        {
-            ROS_INFO("unknown estimation method");
-            return;
-        }
-
-        if (border_policy_ignore_) 
-        {
-            ne.setBorderPolicy(pcl::IntegralImageNormalEstimation<pcl::PointXYZ, pcl::Normal>::BORDER_POLICY_IGNORE);
-        }
-        else 
-        {
-            ne.setBorderPolicy(pcl::IntegralImageNormalEstimation<pcl::PointXYZ, pcl::Normal>::BORDER_POLICY_MIRROR);
-        }
-
-        ne.setMaxDepthChangeFactor(max_depth_change_factor_);
-        ne.setNormalSmoothingSize(normal_smoothing_size_);
-        ne.setDepthDependentSmoothing(depth_dependent_smoothing_);
-
-        ne.setInputCloud(input);
-
-        ne.compute(*output);
-
-        if (publish_normal_) 
-        {
-            pub_pointcloud_normal_.publish(output);
-        }
-        
-        if (visualize_normal_)
-        {
-            pcl::visualization::PCLVisualizer viewer("Point Normal");
-            viewer.setBackgroundColor (0.0, 0.0, 0.5);
-            viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(input, output);
-            while (!viewer.wasStopped ())
-            {
-                viewer.spinOnce ();
-            }
-        }
-
-    }
-
-    void estimateEdge( const pcl::PointCloud<pcl::PointXYZ>::Ptr& input, const pcl::PointCloud<pcl::Normal>::Ptr& normal,
-                        pcl::PointCloud<pcl::Label>::Ptr& output, std::vector<pcl::PointIndices>& label_indices)
-    {
-        pcl::OrganizedEdgeFromNormals<pcl::PointXYZ, pcl::Normal, pcl::Label> oed;
-        oed.setDepthDisconThreshold (depth_discontinuation_threshold_);
-        oed.setMaxSearchNeighbors (max_search_neighbors_);
-        int flags = 0;
-        if (use_nan_boundary_) 
-        {
-            flags |= oed.EDGELABEL_NAN_BOUNDARY;
-        }
-        if (use_occluding_) {
-            flags |= oed.EDGELABEL_OCCLUDING;
-        }
-        if (use_occluded_) {
-            flags |= oed.EDGELABEL_OCCLUDED;
-        }
-        if (use_curvature_) {
-            flags |= oed.EDGELABEL_HIGH_CURVATURE;
-        }
-        if (use_rgb_) {
-            flags |= oed.EDGELABEL_RGB_CANNY;
-        }
-        oed.setEdgeType (flags);
-        oed.setInputNormals(normal);
-        oed.setInputCloud(input);
-        oed.compute(*output, label_indices);
-    }
-     
-    void publishEdge( ros::Publisher& pub, ros::Publisher& pub_indices,
-                            const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud, const std::vector<int>& indices,
-                            const std_msgs::Header& header)
-    {
-        // publish indices
-        pcl_msgs::PointIndices msg;
-        msg.header = header;
-        msg.indices = indices;
-        pub_indices.publish(msg);
-
-        // publish cloud
-        pcl::PointCloud<pcl::PointXYZ>::Ptr output(new pcl::PointCloud<pcl::PointXYZ>);
-        pcl_PointCloudRGB::Ptr output_rgb(new pcl_PointCloudRGB);
-        pcl::copyPointCloud(*cloud, indices, *output);
-        sensor_msgs::PointCloud2 ros_output;
-        pcl::toROSMsg(*output, ros_output);
-        ros_output.header = header;
-        pub.publish(ros_output);
-
-        // pcl::copyPointCloud(output, output_rgb);
-
-        // sensor_msgs::Image edge_image_;
-        // if (output->size() != 0)
-        // {
-        //     try
-        //     {
-        //         pcl::toROSMsg(*output_rgb, edge_image_);
-        //         edge_image_.header = header;   
-        //         // std::cout << "Image frame: " << edge_image_.header.frame_id << std::endl;
-        //         // std::cout << "Image size h and w: " << edge_image_.height << " and "
-        //         //                                     << edge_image_.width << std::endl;
-        //     }
-        //     catch(std::runtime_error e)
-        //     {
-        //         ROS_ERROR_STREAM("Error in converting cloud to image message: "
-        //                                     << e.what());
-        //     }
-
-        //     /* Convert to CV image*/
-        //     cv_bridge::CvImagePtr cv_ptr;
-        //     cv_ptr = cv_bridge::toCvCopy(edge_image_, sensor_msgs::image_encodings::MONO8);
-        //     // cv_ptr->image = cv_ptr->image - cv::Scalar(255,0,0);
-
-        //     cv::Mat img_grey;
-        //     // cv::cvtColor(cv_ptr->image, img_grey, CV_BGR2GRAY);
-
-        //     // cv::Mat img_bw;
-        //     // cv::threshold(img_grey, img_bw, 2.0, 255.0, CV_THRESH_BINARY);
-
-        //     cv::imshow( "Edge Image", cv_ptr->image);  
-        //     cv::waitKey(1);
-        // }
-        
-    }
-    
     /* Template Matching */
-    void templateMatchingPallet(cv::Mat img, cv::Mat templ, cv::Mat output, const std_msgs::Header& header, pcl::PointXY &pallet_xy)
+    bool templateMatchingPallet(cv::Mat img, cv::Mat templ, cv::Mat output, 
+                    double &max_point, pcl::PointXY &pallet_xy)
     {
         cv::Mat img_display;
         img.copyTo(img_display);
@@ -513,7 +367,6 @@ public:
         double minVal;
         double maxVal;
 
-        // match_method_ = 1;
         // Scale template to match the size of the image
         if (manual_scale_)  optimal_scale_ = scale_par_;
         else  // auto
@@ -539,7 +392,8 @@ public:
 
                 cv::matchTemplate(img, templ_scale, result, match_method_);
                 cv::minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
-                
+                // ROS_INFO("scale: : %f", scale_par_);               
+                // ROS_INFO("maxVal: %f", maxVal);
                 if (maxVal > max_val_optimal) 
                 {
                     max_val_optimal = maxVal;
@@ -566,79 +420,136 @@ public:
         if((templ.cols >= img.cols) || (templ.rows >= img.rows))
         {
             ROS_INFO("Template is bigger than image");
+            return 0;
         }
         else
         {
             cv::matchTemplate(img, templ, result, match_method_);
             cv::minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
-
-            if (match_method_  == 0)
+            double threshold = thres_;
+            ROS_INFO("Template matching score: %f", maxVal);
+            if (maxVal > threshold)
             {
-                match_method_ = cv::TM_SQDIFF;
-                matchLoc = minLoc;
-            } 
-            if (match_method_  == 1)
-            {
-                match_method_ == cv::TM_SQDIFF_NORMED;
-                matchLoc = minLoc;
-            }
-            if (match_method_  == 2)
-            {
-                match_method_ == cv::TM_CCORR;
-                matchLoc = maxLoc;
-            }
-            if (match_method_  == 3)
-            {
-                match_method_ == cv::TM_CCORR_NORMED;
-                matchLoc = maxLoc;
-            }
-            if (match_method_  == 4)
-            {
-                match_method_ == cv::TM_CCOEFF;
-                matchLoc = maxLoc;
-            }
-
-            ROS_INFO("Optimal scale: %f", optimal_scale_);
-            // ROS_INFO("maxVal: %f", maxVal);
-            // ROS_INFO("minVal: %f", minVal);
-            double pose_x_local = double (matchLoc.x) + double (templ.cols)/2;
-            double pose_y_local = double (matchLoc.y) + double (templ.rows)/2;
-
-            double center_x = double(img.cols)/2;
-            double center_y = double(img.rows)/2;
-
-            double pose_x_camera_frame = ((pose_x_local - center_x)/optimal_scale_)/100;
-            double pose_y_camera_frame = ((pose_y_local - center_y)/optimal_scale_)/100;
-
-            pallet_xy.x = pose_x_camera_frame;
-            pallet_xy.y = pose_y_camera_frame;
-
-            // std::cout << "pose camera x, y: " << pose_x_camera_frame << ", " << pose_y_camera_frame << std::endl;
-
-            cv::cvtColor(img_display, output, cv::COLOR_GRAY2BGR);
-            cv::rectangle( output, matchLoc, 
-                cv::Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), 
-                cv::Scalar(255, 0, 0), 2, 8, 0 );
-
-            if(opencv_show_)
-            {
-                // cv::imshow( "Segment Image", img);
-                if(template_matching_show_)
+                if (match_method_  == 0)
                 {
-                    cv::imshow( "Template Matching", output);
-                    cv::imshow( "Template image", templ);
+                    match_method_ = cv::TM_SQDIFF;
+                    matchLoc = minLoc;
+                } 
+                if (match_method_  == 1)
+                {
+                    match_method_ == cv::TM_SQDIFF_NORMED;
+                    matchLoc = minLoc;
                 }
-                cv::waitKey(1);
+                if (match_method_  == 2)
+                {
+                    match_method_ == cv::TM_CCORR;
+                    matchLoc = maxLoc;
+                }
+                if (match_method_  == 3)
+                {
+                    match_method_ == cv::TM_CCORR_NORMED;
+                    matchLoc = maxLoc;
+                }
+                if (match_method_  == 4)
+                {
+                    match_method_ == cv::TM_CCOEFF;
+                    matchLoc = maxLoc;
+                }
+
+                ROS_INFO("Optimal scale: %f", optimal_scale_);
+
+                // ROS_INFO("minVal: %f", minVal);
+                double pose_x_local = double (matchLoc.x) + double (templ.cols)/2;
+                double pose_y_local = double (matchLoc.y) + double (templ.rows)/2;
+
+                double center_x = double(img.cols)/2;
+                double center_y = double(img.rows)/2;
+
+                double pose_x_camera_frame = ((pose_x_local - center_x)/optimal_scale_)/100;
+                double pose_y_camera_frame = ((pose_y_local - center_y)/optimal_scale_)/100;
+
+                pallet_xy.x = pose_x_camera_frame;
+                pallet_xy.y = pose_y_camera_frame;
+
+                // std::cout << "pose camera x, y: " << pose_x_camera_frame << ", " << pose_y_camera_frame << std::endl;
+
+                cv::cvtColor(img_display, output, cv::COLOR_GRAY2BGR);
+                cv::rectangle( output, matchLoc, 
+                    cv::Point( matchLoc.x + templ.cols , matchLoc.y + templ.rows ), 
+                    cv::Scalar(255, 0, 0), 2, 8, 0 );
+
+                if(opencv_show_)
+                {
+                    // cv::imshow( "Segment Image", img);
+                    if(template_matching_show_)
+                    {
+                        cv::imshow( "Template Matching", output);
+                        // cv::imshow( "Template image", templ);
+                    }
+                    cv::waitKey(1);
+                }
+                else cv::destroyAllWindows();
+                max_point = maxVal;
+                return 1;
             }
-            else cv::destroyAllWindows();
+            else 
+            {
+                ROS_INFO("Template matching not enough quality");
+                return 0;
+            }
         }
+    }
+    
+    void kalmanFilter(Eigen::Vector3d &est_pose, Eigen::Matrix3d &est_cov,
+                    const Eigen::Vector3d &measure_pose, const Eigen::Matrix3d &measure_cov, bool measurement_avai)
+    {
+    //kalman update on pose vectors and covariance
+        Eigen::Vector3d predict_state;
+        Eigen::Matrix3d predict_cov, Rk, Sk, Kk, Ik, Sk_inv;
+        Ik.setIdentity();
+        Eigen::Vector3d yk;
+        Eigen::Vector3d relative_pose;
+        
+        bool wtf;
+        double det;
+
+        // predict model
+        predict_state = 1*est_pose;
+        predict_cov = est_cov + process_noise_*Eigen::Matrix3d::Identity();
+        
+        if (measurement_avai)
+        {
+            relative_pose = measure_pose  - est_pose;
+        
+            yk = relative_pose;
+            
+            Rk = measure_cov;
+            Sk = predict_cov + Rk;
+            Sk.computeInverseAndDetWithCheck(Sk_inv, det, wtf);
+            if (!wtf) 
+            {
+                ROS_WARN("Matrix not invertible");
+                return;
+            }
+            Kk = predict_cov*Sk_inv;
+
+            est_pose = est_pose + Kk*yk;
+            est_cov = (Ik - Kk)*est_cov;
+        }
+        else
+        {
+            est_pose = predict_state;
+            est_cov = predict_cov;
+        }
+
+        // std::cout << "kalman filter output: " << std::endl << predict_state << std::endl;
+        // std::cout << "estimate covariance: " << std::endl << est_pose << std::endl;
+        // std::cout << " covariance: " << std::endl << predict_cov << std::endl;
     }
     
     void pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
     {   
         pcl::fromROSMsg(*msg, cloud_);  
-        // std::cout << "point size h and w: " << msg->height << " and " << msg->width << std::endl;
-
         ros::Time begin = ros::Time::now();
 
         /* Filter pointcloud */
@@ -646,131 +557,250 @@ public:
         cloud_ = cloud_f_;
         pub_filtered_pointcloud_.publish(cloud_);
 
-        // ros::Time filter_time = ros::Time::now();
-        // ros::Duration processing_filter_time = filter_time - begin;
-        // ROS_INFO("Processing filter time: %f", processing_filter_time.toSec());
-
         /* Clear the PC from floor points */
-        if(active_remove_floor_)
+        groundFilter(cloud_, cloud_f_);
+        cloud_ = cloud_f_;
+        pub_ground_filtered_pointcloud_.publish(cloud_);
+
+        /* Cut off the fork points*/
+        pcl::PassThrough<pcl::PointXYZ> pass;
+        pass.setInputCloud(cloud_.makeShared());
+        pass.setFilterFieldName ("z");
+        pass.setFilterLimits(1.0, 3.5);
+        pass.setKeepOrganized(true);
+        pass.filter (cloud_f_); 
+        cloud_ = cloud_f_;
+
+        /* Calculate distance and pallet orientation*/
+        pcl_PointCloud::Ptr min_z_points(new pcl_PointCloud);
+        min_z_points->header = cloud_.header;
+        double max_value_of_min_z_point = 0;
+        for (int i = 0; i < cloud_.width; i++)
         {
-            groundFilter(cloud_, cloud_f_);
-            cloud_ = cloud_f_;
-            pub_ground_filtered_pointcloud_.publish(cloud_);
-        }
-
-        // ros::Time floor_remove_time = ros::Time::now();
-        // ros::Duration floor_remove_processing_time = floor_remove_time - begin;
-        // ROS_INFO("Processing floor remove time: %f", floor_remove_processing_time.toSec());
-
-        /* Plane Segment */    
-
-        pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
-        estimateNormalKdtree(cloud_.makeShared(), normals);
-        bool check_segment = planeSegementation(cloud_, cloud_rgb_, normals);
-        
-        if (check_segment)
-        {
-            pub_rgb_pointcloud.publish(cloud_rgb_);
-            if(cloud_rgb_.size() != 0)
+            double min_z = 5;           //initial meter
+            int index = 0;
+            pcl::PointXYZ point_min_z;
+            for (int j = 0; j < cloud_.height; j++)
             {
-                try
+                if (isnan(cloud_.at(i,j).x) || isnan(cloud_.at(i,j).y) || isnan(cloud_.at(i,j).z))
+                    continue;
+                if (cloud_.at(i,j).z < min_z)
                 {
-                    pcl::toROSMsg(cloud_rgb_, pallet_image_);
-                    pallet_image_.header = msg->header;   
-                    // std::cout << "Image frame: " << pallet_image_.header.frame_id << std::endl;
-                    // std::cout << "Image size h and w: " << pallet_image_.height << " and "
-                    //                                     << pallet_image_.width << std::endl;
-                }
-                catch(std::runtime_error e)
-                {
-                    ROS_ERROR_STREAM("Error in converting cloud to image message: "
-                                                << e.what());
-                }
-
-                pub_image_.publish(pallet_image_); 
-
-                /* Convert to CV image*/
-                cv_bridge::CvImagePtr cv_ptr;
-                cv_ptr = cv_bridge::toCvCopy(pallet_image_, sensor_msgs::image_encodings::RGB8);
-                cv_ptr->image = cv_ptr->image - cv::Scalar(255,0,0);
-
-                cv::Mat img_grey;
-                cv::cvtColor(cv_ptr->image, img_grey, CV_BGR2GRAY);
-
-                cv::Mat img_bw;
-                cv::threshold(img_grey, img_bw, 2.0, 255.0, CV_THRESH_BINARY);
-                source_img_ = img_bw;
-
-                /* Template matching */
-                templateMatchingPallet(source_img_, templ_img_, result_img_, msg->header, pallet_point_xy_);
-            
-                // /* get XYZ position of the pallet, z calculate from depth of cluster*/
-                // pcl_PointCloud::Ptr normal_cloud(new pcl_PointCloud);
-                // pcl::copyPointCloud(cloud_rgb_, *normal_cloud);
-
-                // pcl::CentroidPoint<pcl::PointXYZ> center_point;
-                // for (int i = 0; i < normal_cloud->width; i++)
-                // {
-                //     for (int j = 0; j < normal_cloud->height; j++)
-                //     {
-                //         if (isnan(normal_cloud->at(i,j).x) || isnan(normal_cloud->at(i,j).y)
-                //             || isnan(normal_cloud->at(i,j).z)) continue;
-                //         center_point.add(normal_cloud->at(i,j));
-                //     }
-                // }
-
-                // pcl::PointXYZ center_pointxyz;
-                // center_point.get(center_pointxyz);
-                // // std::cout << "Center point x,y,z: " << center_pointxyz.x << " "
-                // //                                     << center_pointxyz.y << " "
-                // //                                 << center_pointxyz.z << std::endl;
-
-                // pallet_pose_.header.frame_id = msg->header.frame_id;
-                // pallet_pose_.pose.position.x = pallet_point_xy_.x;
-                // pallet_pose_.pose.position.y = pallet_point_xy_.y;
-                // pallet_pose_.pose.position.z = center_pointxyz.z;
-
-                // pub_pallet_pose_.publish(pallet_pose_);
-
-                // // Estimate normal of the plane
-                // pcl::PointCloud <pcl::Normal>::Ptr pallet_normals (new pcl::PointCloud <pcl::Normal>);
-                // estimateNormalKdtree(normal_cloud, pallet_normals);
-
-                // // std::cout << "Normals number: " << normal_cloud->size() << std::endl;
-                // // pcl::CentroidPoint<pcl::Normal> center_normal;
-
+                    min_z = cloud_.at(i,j).z;
+                    index = j;
+                } 
             }
-            else ROS_INFO("Segment size = 0!");
+            if (isnan(cloud_.at(i,index).x) || isnan(cloud_.at(i,index).y) || isnan(cloud_.at(i,index).z))
+                continue;
+            point_min_z.x = cloud_.at(i,index).x;
+            point_min_z.y = cloud_.at(i,index).y;
+            point_min_z.z = cloud_.at(i,index).z;
+            min_z_points->push_back(point_min_z);
+        } 
+        pub_rgb_pointcloud.publish(min_z_points);
+
+        if (min_z_points->size() != 0)
+        {
+            /* get Z position of the pallet, z calculate from depth of cluster*/
+            pcl::CentroidPoint<pcl::PointXYZ> center_point;
+
+            for (int i = 0; i < min_z_points->size(); i ++)
+            {
+                if (max_value_of_min_z_point < min_z_points->at(i).z) max_value_of_min_z_point = min_z_points->at(i).z;
+                center_point.add(min_z_points->at(i));
+            }
+
+            pcl::PointXYZ center_pointxyz;
+            center_point.get(center_pointxyz);
+
+            pallet_pose_.header.frame_id = msg->header.frame_id;
+            pallet_pose_.pose.position.z = center_pointxyz.z;
+
+            /* get yaw angle of the pallet */
+            double vector_pallet_x, vector_pallet_z;
+            int index0 = min_z_points->size()/2 - min_z_points->size()/4 ;
+            int index1 = min_z_points->size()/2 + min_z_points->size()/4 ;
+            vector_pallet_x = min_z_points->at(index1).x - min_z_points->at(index0).x;
+            vector_pallet_z = min_z_points->at(index1).z - min_z_points->at(index0).z;
+            // vector_pallet_x = min_z_points->at(min_z_points->size()-1).x - min_z_points->at(0).x;
+            // vector_pallet_z = min_z_points->at(min_z_points->size()-1).z - min_z_points->at(0).z;
+
+            double vector_length = sqrt(vector_pallet_x*vector_pallet_x + vector_pallet_z*vector_pallet_z);
+            pallet_yaw_angle_ = acos(vector_pallet_z/vector_length);
+            pallet_yaw_angle_ = pallet_yaw_angle_ - M_PI;
+            // ROS_INFO("pallet angle: %f", pallet_yaw_angle_*180/M_PI);
+            tf2::Quaternion pallet_quaternion;
+            pallet_quaternion.setRPY(0, pallet_yaw_angle_, 0);
+            pallet_quaternion = pallet_quaternion.normalize();
+
+            geometry_msgs::Quaternion pallet_final_quaternion;
+            tf2::convert(pallet_quaternion, pallet_final_quaternion);
+            pallet_pose_.pose.orientation = pallet_final_quaternion;
+
+            pub_pallet_pointcloud_.publish(cloud_);
+
+            bool check_segment = 0;
+            if (active_segment_)
+            {
+                // /* Plane Segment */    
+                pcl::PointCloud <pcl::Normal>::Ptr normals (new pcl::PointCloud <pcl::Normal>);
+                estimateNormalKdtree(cloud_.makeShared(), normals);
+                check_segment = planeSegementation(cloud_, cloud_rgb_, normals);
+                pub_rgb_pointcloud.publish(cloud_rgb_);
+            }
+            else
+            {   // Take all the point to process instead of plane segmentation
+                cloud_rgb_.width = cloud_.width;
+                cloud_rgb_.height = cloud_.height;
+                cloud_rgb_.points.resize(cloud_rgb_.width * cloud_rgb_.height);
+                cloud_rgb_.header = cloud_.header;
+                for( int i = 0; i < cloud_rgb_.width; i++ ) 
+                {
+                    for( int j = 0; j < cloud_rgb_.height; j++ ) 
+                    {
+                        pcl::PointXYZRGB point;
+                        point.x = cloud_.at(i,j).x;
+                        point.y = cloud_.at(i,j).y;
+                        point.z = cloud_.at(i,j).z;
+                        if (isnan(point.x) || isnan(point.y) || isnan(point.z)) 
+                        {
+                            point.r = 0; point.g = 0; point.b = 0;
+                        }
+                        else 
+                        {
+                            point.r = 255; point.g = 255; point.b = 255;
+                        }
+                        cloud_rgb_.at(i,j) = point;
+                    }
+                }
+                check_segment = 1;
+            }
+            if (check_segment)
+            {
+                if(cloud_rgb_.size() != 0)
+                {       
+                    // Convert to opencv image
+                    cv::Mat cv_image;
+                    cv_image = cv::Mat(cloud_rgb_.height, cloud_rgb_.width, CV_8UC3);
+                    
+                    for( int y = 0; y < cv_image.rows; y++ ) 
+                    {
+                        for( int x = 0; x < cv_image.cols; x++ ) 
+                        {
+                            pcl::PointXYZRGB point = cloud_rgb_.at(x,y );
+
+                            cv_image.at<cv::Vec3b>( y, x )[0] = point.b;
+                            cv_image.at<cv::Vec3b>( y, x )[1] = point.g;
+                            cv_image.at<cv::Vec3b>( y, x )[2] = point.r;
+                        }
+                    }
+
+                    cv_image = cv_image - cv::Scalar(0,0,255);
+                    cv::Mat img_grey;
+                    cv::cvtColor(cv_image, img_grey, CV_BGR2GRAY);
+                    cv::Mat img_bw;
+                    cv::threshold(img_grey, img_bw, 2.0, 255.0, CV_THRESH_BINARY);
+                    source_img_ = img_bw;
+
+                    // /* Template matching */
+                    double matching_score;
+                    
+                    tm_quality_ = templateMatchingPallet(source_img_, templ_img_, result_img_, matching_score, pallet_point_xy_);
+                    // ROS_INFO("Matching score: %f", matching_score);
+                    
+
+                    if (tm_quality_)
+                    {
+                        pallet_pose_.pose.position.x = pallet_point_xy_.x;
+                        pallet_pose_.pose.position.y = pallet_point_xy_.y;
+                        pallet_pose_.pose.position.z += 0.5; 
+
+                        // Transform to base_link
+                        pallet_pose_.header.frame_id = msg->header.frame_id;
+                        pallet_pose_.header.stamp = ros::Time(0);;
+
+                        tf2_ros::Buffer tf_buffer;
+                        tf2_ros::TransformListener listener(tf_buffer);
+
+                        std::string target_link = "odom";
+
+                        try
+                        {
+                            pallet_pose_output_ = tf_buffer.transform(pallet_pose_, target_link, ros::Duration(1));
+                        }
+                        catch (tf::LookupException ex)
+                        {
+                            ROS_ERROR("%s",ex.what());
+                        }
+                        
+                        pub_pallet_pose_.publish(pallet_pose_output_);
+                    }
+                    else ROS_INFO("Pallet pose is noisy");
+
+                    Eigen::Vector3d pose_measured;
+                    Eigen::Matrix3d cov_measured; 
+                    cov_measured.setIdentity();
+                    cov_measured = 0.015*cov_measured;
+
+                    tf::Quaternion q(
+                        pallet_pose_output_.pose.orientation.x,
+                        pallet_pose_output_.pose.orientation.y,
+                        pallet_pose_output_.pose.orientation.z,
+                        pallet_pose_output_.pose.orientation.w);
+                    tf::Matrix3x3 m(q);
+                    double roll, pitch, yaw;
+                    m.getRPY(roll, pitch, yaw);
+
+                    pose_measured.x() = pallet_pose_output_.pose.position.x;
+                    pose_measured.y() = pallet_pose_output_.pose.position.y; // take z for cal
+                    pose_measured.z() = yaw;
+                
+                    kalmanFilter(tracking_pose_, tracking_cov_, pose_measured, cov_measured, tm_quality_);
+
+                    geometry_msgs::PoseWithCovarianceStamped pallet_pose_kalman;
+                    pallet_pose_kalman.header = pallet_pose_output_.header;
+                    pallet_pose_kalman.pose.pose.position.x = tracking_pose_.x();
+                    pallet_pose_kalman.pose.pose.position.y = tracking_pose_.y();
+                    pallet_pose_kalman.pose.pose.position.z = pallet_pose_output_.pose.position.z;
+
+                    tf2::Quaternion pallet_quaternion_kalman;
+                    pallet_quaternion_kalman.setRPY(0, tracking_pose_.z(), 0);
+                    pallet_quaternion_kalman = pallet_quaternion_kalman.normalize();
+
+                    geometry_msgs::Quaternion pallet_quaternion_kalman_geo;
+                    tf2::convert(pallet_quaternion_kalman, pallet_quaternion_kalman_geo);
+                    pallet_pose_kalman.pose.pose.orientation = pallet_quaternion_kalman_geo;
+                    
+                    pallet_pose_kalman.pose.covariance.at(0) = tracking_cov_(0,0);
+                    pallet_pose_kalman.pose.covariance.at(7) = 0.1;
+                    pallet_pose_kalman.pose.covariance.at(14) = tracking_cov_(1,1);
+                    pallet_pose_kalman.pose.covariance.at(21) = 0;
+                    pallet_pose_kalman.pose.covariance.at(28) = tracking_cov_(2,2);
+                    pallet_pose_kalman.pose.covariance.at(35) = 0;
+
+                    pub_pallet_pose_kalman_.publish(pallet_pose_kalman);
+
+                }
+                else ROS_INFO("Segment size = 0!");
+            }
+            else ROS_INFO("No segment!");
         }
-        else ROS_INFO("No segment!");
-   
+        else ROS_INFO("Non Target");
 
+        pallet_pose_gt_.header.frame_id = "odom";
+        pallet_pose_gt_.header.seq = msg->header.seq;
+        pallet_pose_gt_.header.stamp = msg->header.stamp;
 
+        pallet_pose_gt_.pose.position.x = pallet_gt_x_;
+        pallet_pose_gt_.pose.position.y = pallet_gt_y_;
+        pallet_pose_gt_.pose.position.z = 0;
 
+        pub_pallet_gt_.publish(pallet_pose_gt_);
+
+        
         ros::Time end = ros::Time::now();
-
         ros::Duration processing_time = end - begin;
         ROS_INFO("Processing time: %f \r\n", processing_time.toSec());
- 
-        // /* Normal estimation*/
-        // pcl::PointCloud<pcl::Normal>::Ptr pointcloud_normal(new pcl::PointCloud<pcl::Normal>);
-        // estimateNormalIntegralImage(cloud_.makeShared(), pointcloud_normal);
-        // // estimateNormalKdtree(cloud_.makeShared(), pointcloud_normal);
-
-        // /* Edge estimation*/
-        // pcl::PointCloud<pcl::Label>::Ptr label(new pcl::PointCloud<pcl::Label>);
-        // std::vector<pcl::PointIndices> label_indices;
-
-        // estimateEdge(cloud_.makeShared(), pointcloud_normal, label, label_indices);
-
-        // publishEdge(pub_nan_boundary_edges_, pub_nan_boundary_edges_indices_,
-        //             cloud_.makeShared(), label_indices[0].indices, msg->header);
-        // publishEdge(pub_occluding_edges_, pub_occluding_edges_indices_,
-        //             cloud_.makeShared(), label_indices[1].indices, msg->header);
-        // publishEdge(pub_occluded_edges_, pub_occluded_edges_indices_,
-        //             cloud_.makeShared(), label_indices[2].indices, msg->header);
-        // publishEdge(pub_curvature_edges_, pub_curvature_edges_indices_,
-        //             cloud_.makeShared(), label_indices[3].indices, msg->header);
     }
 
     void reconfigCallback(multi_pallet_detection::palletDetectionReconfigureConfig &config, uint32_t level) 
@@ -803,16 +833,6 @@ public:
             smooth_thresh_ = config.smooth_thresh;
             k_search_ = config.k_search;
 
-            // Edge Detection
-            visualize_normal_ = config.visualize_normal;
-            depth_discontinuation_threshold_ = config.depth_discontinuation_threshold;
-            max_search_neighbors_ = config.max_search_neighbors;
-            use_nan_boundary_ = config.use_nan_boundary;
-            use_occluding_ = config.use_occluding;
-            use_occluded_ = config.use_occluded;
-            use_curvature_ = config.use_curvature;
-            use_rgb_ = config.use_rgb;
-
             //template matching
             template_matching_show_ = config.template_matching_show;
             match_method_ = config.match_method;
@@ -823,6 +843,10 @@ public:
             thres_ = config.thres;
             change_thres_ = config.change_thres;
             scale_change_rate_ = config.scale_change_rate;
+
+            //kalman filter
+            process_noise_ = config.process_noise;
+            measure_noise_ = config.measure_noise;
         }    
     }
 

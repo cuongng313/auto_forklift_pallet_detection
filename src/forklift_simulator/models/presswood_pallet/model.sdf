@@ -1,0 +1,87 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="presswood_pallet">
+    <!-- <static>true</static> -->
+    <link name="link">
+    <pose>0 0.0 0.0 0 0 1.57</pose>
+    <inertial>
+    <pose>0 0.0 0.08 0 0 0</pose>
+	    <mass>0.002</mass>
+	    <inertia>
+	      <ixx>0.0002434</ixx>
+	      <iyy>0.0001101</iyy>
+	      <izz>0.0003466</izz>
+        <ixy>0</ixy>
+	      <ixz>0</ixz>
+	      <iyz>0</iyz>
+	    </inertia>
+	  </inertial>	
+
+      <collision name="collision">
+      <pose>0.0 0.0 0.135 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://presswood_pallet/meshes/presswood_pallet.dae</uri>
+          </mesh>
+        </geometry>
+
+        <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>1.0</mu2>
+                <fdir1>0.000000 0.000000 0.000000</fdir1>
+                <slip1>0.000000</slip1>
+                <slip2>0.000000</slip2>
+              </ode>
+            </friction>
+            <bounce>
+              <restitution_coefficient>0.0</restitution_coefficient>
+              <threshold>100000.0</threshold>
+            </bounce>
+            <contact>
+              <ode>
+                <soft_cfm>0.000000</soft_cfm>
+                <soft_erp>0.200000</soft_erp>
+                <kp>3000000000.000000</kp>
+                <kd>1.000000</kd>
+                <max_vel>0.010000</max_vel>
+                <min_depth>0.00000</min_depth>
+              </ode>
+            </contact>
+        </surface>
+
+      </collision>
+      
+      <visual name="visual">
+        <pose>0.0 0.0 0.135 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://presswood_pallet/meshes/presswood_pallet.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+
+      <collision name="box">
+        <pose>0.0 0.0 0.56 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.8 0.8 0.8</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="box">
+        <pose>0.0 0.0 0.56 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.8 0.8 0.8</size>
+          </box>
+        </geometry>
+       
+      </visual>
+
+    </link>
+  </model>
+</sdf>

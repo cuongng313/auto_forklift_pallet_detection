@@ -1,13 +1,15 @@
 <launch>
 
   <!-- Load joint controller configurations from YAML file to parameter server -->
-  <rosparam file="$(find forklift_simulator)/config/red_container_control.yaml" command="load"/>
+  <!-- <rosparam file="$(find forklift_simulator)/config/red_container_control.yaml" command="load"/> -->
+  <rosparam file="$(find forklift_simulator)/config/blue_container_control.yaml" command="load"/>
 
   <!-- load the controllers -->
   <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
-	output="screen" ns="/red_container" args="joint_state_controller
+	output="screen" ns="/blue_container" args="joint_state_controller
             right_door_joint_controller
-            left_door_joint_controller"/>
+            left_door_joint_controller
+            lift_joint_controller"/>
 
 
 
